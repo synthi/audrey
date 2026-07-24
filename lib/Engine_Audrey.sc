@@ -24,7 +24,7 @@ Engine_Audrey : CroneEngine {
         SynthDef(\audreyVoice, {
             arg out=0, in=0,
                 freq=40,        // MIDI note number (C++ original: 16-72)
-                fbGain=-60,     // dBFS (C++ original: -60 to 12)
+                fbGain = -60,   // dBFS (C++ original: -60 to 12)
                 body=0.001,     // seconds (C++ original: 0.001 to 0.1, exp)
                 lpf=18000,      // Hz (C++ original: 100 to 18000, log)
                 hpf=250,        // Hz (C++ original: 10 to 4000, log, default 250 in Controls)
