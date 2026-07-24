@@ -1,5 +1,6 @@
 -- presets.lua
--- preset management system with PSET integration
+-- v6.0.0 - preset management system with PSET integration
+-- Updated for 11 params (matching C++ original)
 
 local Presets = {}
 
@@ -46,72 +47,37 @@ function Presets.save(slot, name)
     print("Invalid preset slot")
     return false
   end
-  
   name = name or ("Preset " .. slot)
   local filename = Presets.preset_path .. "preset_" .. slot .. ".pset"
-  
   local f = io.open(filename, "w")
   if f then
     f:write("-- " .. name .. "\n")
-    f:write("-- Audrey preset (faithful to original)\n")
+    f:write("-- Audrey v6.0.0 preset (faithful to C++ original)\n")
     f:write("-- Saved: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n\n")
-    
     f:write("return {\n")
-    
-    -- Synthesis params
     f:write("  -- Synthesis\n")
     Presets.write_param(f, "frequency")
     Presets.write_param(f, "feedback_gain")
     Presets.write_param(f, "feedback_body_delay")
-    Presets.write_param(f, "brightness")
-    Presets.write_param(f, "damping")
-    
-    -- Distortion
-    f:write("  -- Distortion\n")
-    Presets.write_param(f, "overdrive")
-    
-    -- Filter params
     f:write("  -- Filters\n")
     Presets.write_param(f, "lpf_cutoff")
-    Presets.write_param(f, "lpf_q")
     Presets.write_param(f, "hpf_cutoff")
-    Presets.write_param(f, "hpf_q")
-    
-    -- Reverb params
     f:write("  -- Reverb\n")
     Presets.write_param(f, "reverb_mix")
     Presets.write_param(f, "reverb_decay")
-    Presets.write_param(f, "reverb_lpf")
-    
-    -- Tape delay params
-    f:write("  -- Tape Delay\n")
-    Presets.write_param(f, "delay_time")
-    Presets.write_param(f, "delay_feedback")
-    Presets.write_param(f, "delay_send")
-    Presets.write_param(f, "delay_lag")
-    Presets.write_param(f, "tape_wow_amount")
-    Presets.write_param(f, "tape_wow_rate")
-    Presets.write_param(f, "tape_flutter_amount")
-    Presets.write_param(f, "tape_flutter_rate")
-    Presets.write_param(f, "tape_age")
-    Presets.write_param(f, "tape_saturation")
-    Presets.write_param(f, "tape_hiss")
-    Presets.write_param(f, "tape_lpf")
-    Presets.write_param(f, "tape_hpf")
-    
-    -- Output
+    f:write("  -- Echo\n")
+    Presets.write_param(f, "echo_send")
+    Presets.write_param(f, "echo_time")
+    Presets.write_param(f, "echo_feedback")
     f:write("  -- Output\n")
     Presets.write_param(f, "master_level")
-    
     f:write("}\n")
     f:close()
-    
     Presets.slots[slot] = {
       exists = true,
       name = name,
       modified = false
     }
-    
     Presets.current_slot = slot
     print("Preset saved to slot " .. slot .. ": " .. name)
     return true
@@ -131,23 +97,18 @@ function Presets.load(slot)
     print("Invalid preset slot")
     return false
   end
-  
   local filename = Presets.preset_path .. "preset_" .. slot .. ".pset"
-  
   if util.file_exists(filename) == false then
     print("Preset slot " .. slot .. " is empty")
     return false
   end
-  
   local preset_data = dofile(filename)
-  
   if preset_data then
     for param_id, value in pairs(preset_data) do
       if params:lookup_param(param_id) then
         params:set(param_id, value)
       end
     end
-    
     Presets.current_slot = slot
     print("Loaded preset " .. slot .. ": " .. Presets.slots[slot].name)
     return true
@@ -161,9 +122,7 @@ function Presets.delete(slot)
   if slot < 1 or slot > Presets.num_slots then
     return false
   end
-  
   local filename = Presets.preset_path .. "preset_" .. slot .. ".pset"
-  
   if util.file_exists(filename) then
     os.remove(filename)
     Presets.slots[slot] = {
@@ -171,15 +130,12 @@ function Presets.delete(slot)
       name = "Empty",
       modified = false
     }
-    
     if Presets.current_slot == slot then
       Presets.current_slot = nil
     end
-    
     print("Deleted preset " .. slot)
     return true
   end
-  
   return false
 end
 

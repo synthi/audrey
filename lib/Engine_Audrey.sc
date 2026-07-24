@@ -1,272 +1,261 @@
 // Engine_Audrey.sc
-// v5.0.0 - Faithful port of Audrey-II (Daisy Seed) for norns
-// 2024-12-20
+// v6.0.0 - Faithful port of Audrey-II (Daisy Seed C++) for norns
+// Based on original by infrasonic/synthi
 //
-// Changelog v5.0.0:
-// - Fixed: threshold → thresh (reserved word in SC)
-// - Verified: all variable declarations at top
-// - Verified: no syntax errors
-// - ReverbSc clone with 8 combs + 4 allpass
-// - Damping filter dynamic (brightness/damping work correctly)
-// - Correct signal flow order matching C++ original
+// Signal flow (matching FeedbackSynthEngine.cpp::Process):
+//   noise(-90dB) + audio_in + fb_return → KS resonator → overdrive(tanh)
+//   → LPF12(Q=0.9) → HPF12(Q=0.9) → Reverb(8comb+4allpass, INSIDE loop)
+//   → reverb_mix → fb_write(*gain) → echo(BPF800+tanh) → mix(0.5) → limiter(0.7)
+//
+// All variables declared at top. Execution strictly top-to-bottom.
 
 Engine_Audrey : CroneEngine {
     var <synth;
-    var <reverbSynth;
-    var <tapeSynth;
-    var <limiterSynth;
-    var <reverbBus;
-    var <tapeDelayBus;
 
     *new { arg context, doneCallback;
         ^super.new(context, doneCallback);
     }
 
     alloc {
-        reverbBus = Bus.audio(context.server, 2);
-        tapeDelayBus = Bus.audio(context.server, 2);
 
-        // ReverbSc clone (faithful to DaisySP implementation)
-        SynthDef(\reverbSc, {
-            arg in=0, out=0,
-                feedback=0.85,
-                lpf=12000,
-                mix=0.4;
-            
-            var sig, combL, combR, apL, apR, wetL, wetR, sr;
-            
-            sig = In.ar(in, 2);
+        // === MAIN VOICE SYNTHDEF (single, self-contained) ===
+        // Matches C++ Engine::Process + KarplusString + EchoDelay + ReverbSc
+
+        SynthDef(\audreyVoice, {
+            arg out=0, in=0,
+                freq=40,        // MIDI note number (C++ original: 16-72)
+                fbGain=-60,     // dBFS (C++ original: -60 to 12)
+                body=0.001,     // seconds (C++ original: 0.001 to 0.1, exp)
+                lpf=18000,      // Hz (C++ original: 100 to 18000, log)
+                hpf=250,        // Hz (C++ original: 10 to 4000, log, default 250 in Controls)
+                verbMix=0.0,    // 0-1 (C++ original: 0.0 default)
+                verbFb=0.2,     // 0.2-1.0 (C++ original: 0.2 default)
+                echoSend=0.0,   // 0-1 (C++ original: 0.0 default, exp)
+                echoTime=0.5,   // seconds (C++ original: 0.05 to 5.0, exp)
+                echoFb=0.0,     // 0-1.5 (C++ original: 0.0 default)
+                level=0.5;      // 0-1 (C++ original: 0.5 default, exp)
+
+            // ============================================
+            // ALL VARIABLES DECLARED AT TOP (SC convention)
+            // ============================================
+
+            // Sample rate and constants
+            var sr, sampleDur;
+
+            // Smoothed parameters (Lag.kr matching C++ SmoothedValue)
+            var kFreq, kBody, kFbAmp, kLpf, kHpf;
+            var kVerbMix, kVerbFb, kEchoSend, kEchoTime, kEchoFb, kLevel;
+
+            // Audio input and noise
+            var audioIn, noise;
+
+            // Feedback returns (4 channels: 2 main + 2 echo)
+            var fbRetL, fbRetR, echoRetL, echoRetR;
+
+            // Main loop signals
+            var inL, inR, sampL, sampR;
+            var verbL, verbR;
+
+            // KS resonator
+            var maxDelay, delayTime, decayTime;
+
+            // Echo delay
+            var echoTapeL, echoTapeR, echoOutL, echoOutR;
+
+            // Reverb internals
+            var combFb, combMult;
+            var combL1, combL2, combL3, combL4;
+            var combR1, combR2, combR3, combR4;
+            var combL, combR, apL, apR;
+
+            // ============================================
+            // EXECUTION STARTS HERE (top to bottom)
+            // ============================================
+
             sr = SampleRate.ir;
-            
-            // LEFT: 4 parallel combs (prime numbers to avoid metallic ring)
-            combL = CombL.ar(sig[0], 1116/sr, 1116/sr, feedback * 3);
-            combL = combL + CombL.ar(sig[0], 1188/sr, 1188/sr, feedback * 3);
-            combL = combL + CombL.ar(sig[0], 1277/sr, 1277/sr, feedback * 3);
-            combL = combL + CombL.ar(sig[0], 1356/sr, 1356/sr, feedback * 3);
-            combL = combL * 0.25;
-            combL = LPF.ar(combL, lpf);
-            
-            // LEFT: 2 series allpass
+            sampleDur = SampleDur.ir;
+
+            // --- Smoothed parameters (matching C++ SmoothedValue times) ---
+            kFreq = Lag.kr(freq, 0.2).midicps;     // C++: 0.2s smooth, MIDI→Hz
+            kBody = Lag.kr(body, 1.0);              // C++: 1.0s smooth
+            kFbAmp = Lag.kr(fbGain, 0.05).dbamp;   // C++: 0.05s smooth, dB→linear
+            kLpf = Lag.kr(lpf, 0.05);               // C++: 0.05s smooth
+            kHpf = Lag.kr(hpf, 0.05);               // C++: 0.05s smooth
+            kVerbMix = Lag.kr(verbMix, 0.05);       // C++: 0.05s smooth
+            kVerbFb = Lag.kr(verbFb, 0.05);          // C++: 0.05s smooth
+            kEchoSend = Lag.kr(echoSend, 0.05);     // C++: 0.05s smooth
+            kEchoTime = Lag.kr(echoTime, 0.5);      // C++: 0.5s lag in EchoDelay
+            kEchoFb = Lag.kr(echoFb, 0.05);         // C++: 0.05s smooth
+            kLevel = Lag.kr(level, 0.05);           // C++: 0.05s smooth
+
+            // --- Audio input (L+R sumados, -6dB para compensar) ---
+            // C++ original usa solo IN_L; nosotros sumamos L+R con atenuación
+            audioIn = In.ar(in, 2).sum * 0.5;
+
+            // --- Noise seed (-90 dBFS, single instance shared L+R) ---
+            // C++: noise_.SetAmp(dbfs2lin(-90.0f)) = 0.00003162
+            noise = WhiteNoise.ar(-90.dbamp);
+
+            // --- Feedback returns (4 channels: 2 main + 2 echo) ---
+            #fbRetL, fbRetR, echoRetL, echoRetR = LocalIn.ar(4);
+
+            // ============================================
+            // MAIN FEEDBACK LOOP
+            // (matching FeedbackSynthEngine.cpp::Process)
+            // ============================================
+
+            // --- 1. Body delay + noise + audio input ---
+            // C++: inL = fb_delayline_[0].Read(fb_delay_samp_) + noise_samp + in;
+            // C++: inR = fb_delayline_[1].Read(fmax(1.0, fb_delay_samp_ - 4)) + noise_samp + in;
+            // R channel: 4 samples less delay for stereo decorrelation
+            inL = DelayC.ar(fbRetL, 0.25, kBody) + noise + audioIn;
+            inR = DelayC.ar(fbRetR, 0.25, (kBody - (4 * sampleDur)).max(sampleDur)) + noise + audioIn;
+
+            // --- 2. KS Resonator (matching KarplusString.cpp) ---
+            // C++: string_.ReadHermite(delay) + in → clip(±20) → DC block → *0.8 → Tone(8000Hz) → string_.Write
+            //
+            // CombL decay matches *0.8 feedback gain:
+            // decaytime = -3 / log10(0.8) * (1/freq) = 13.45 / freq
+            // Tone filter @ 8000Hz is transparent at 48kHz (coef clamps to 0)
+            maxDelay = 8192 / sr;
+            delayTime = kFreq.reciprocal.clip(4 / sr, maxDelay);
+            decayTime = 13.45 / kFreq;
+
+            sampL = CombL.ar(inL, maxDelay, delayTime, decayTime);
+            sampR = CombL.ar(inR, maxDelay, delayTime, decayTime);
+
+            // KS internal: clip ±20, DC block
+            // (*0.8 already in decayTime, Tone@8000Hz transparent at 48kHz)
+            sampL = sampL.clip(-20, 20);
+            sampR = sampR.clip(-20, 20);
+            sampL = LeakDC.ar(sampL);
+            sampR = LeakDC.ar(sampR);
+
+            // --- 3. Overdrive (soft clip, matching daisysp::Overdrive) ---
+            // C++: overdrive_[i].SetDrive(0.4); sampL = overdrive_[0].Process(sampL);
+            // DaisySP Overdrive uses soft clipping (tanh-like curve)
+            // Drive=0.4 approximated as 1.8x gain into tanh
+            sampL = (sampL * 1.8).tanh;
+            sampR = (sampR * 1.8).tanh;
+
+            // --- 4. Filters (LPF12 + HPF12, Q=0.9, matching C++ BiquadCascade) ---
+            // C++: fb_lpf_.ProcessStereo(sampL, sampR); // LPF12, Q=0.9
+            // C++: fb_hpf_.ProcessStereo(sampL, sampR); // HPF12, Q=0.9
+            sampL = BLowPass.ar(sampL, kLpf, 1/0.9);
+            sampR = BLowPass.ar(sampR, kLpf, 1/0.9);
+            sampL = BHiPass.ar(sampL, kHpf, 1/0.9);
+            sampR = BHiPass.ar(sampR, kHpf, 1/0.9);
+
+            // --- 5. Reverb (DENTRO del feedback loop, matching C++ ReverbSc) ---
+            // C++: verb_->Process(sampL, sampR, &verbL, &verbR);
+            // C++: sampL -= (sampL - verbL) * verb_mix_;
+            //
+            // ReverbSc is a FreeVerb clone: 8 combs + 4 allpass + damping LPF
+            // Our custom implementation uses same FreeVerb prime numbers
+
+            // Convert feedback coefficient to CombL decaytime multiplier
+            // decaytime = -3 / log10(fb) * delaytime
+            // Clamp to prevent infinite decay at fb=1.0
+            combFb = kVerbFb.min(0.999).max(0.001);
+            combMult = -3 / combFb.log10;
+
+            // LEFT: 4 parallel combs (FreeVerb prime numbers)
+            combL1 = CombL.ar(sampL, 1116/sr, 1116/sr, combMult * 1116/sr);
+            combL2 = CombL.ar(sampL, 1188/sr, 1188/sr, combMult * 1188/sr);
+            combL3 = CombL.ar(sampL, 1277/sr, 1277/sr, combMult * 1277/sr);
+            combL4 = CombL.ar(sampL, 1356/sr, 1356/sr, combMult * 1356/sr);
+            combL = (combL1 + combL2 + combL3 + combL4) * 0.25;
+            combL = LPF.ar(combL, 12000);  // ReverbSc SetLpFreq(12000)
+
+            // LEFT: 2 series allpass (FreeVerb)
             apL = AllpassL.ar(combL, 225/sr, 225/sr, 0.5);
             apL = AllpassL.ar(apL, 556/sr, 556/sr, 0.5);
-            
-            // RIGHT: 4 parallel combs
-            combR = CombL.ar(sig[1], 1422/sr, 1422/sr, feedback * 3);
-            combR = combR + CombL.ar(sig[1], 1491/sr, 1491/sr, feedback * 3);
-            combR = combR + CombL.ar(sig[1], 1557/sr, 1557/sr, feedback * 3);
-            combR = combR + CombL.ar(sig[1], 1617/sr, 1617/sr, feedback * 3);
-            combR = combR * 0.25;
-            combR = LPF.ar(combR, lpf);
-            
-            // RIGHT: 2 series allpass
+
+            // RIGHT: 4 parallel combs (FreeVerb prime numbers)
+            combR1 = CombL.ar(sampR, 1422/sr, 1422/sr, combMult * 1422/sr);
+            combR2 = CombL.ar(sampR, 1491/sr, 1491/sr, combMult * 1491/sr);
+            combR3 = CombL.ar(sampR, 1557/sr, 1557/sr, combMult * 1557/sr);
+            combR4 = CombL.ar(sampR, 1617/sr, 1617/sr, combMult * 1617/sr);
+            combR = (combR1 + combR2 + combR3 + combR4) * 0.25;
+            combR = LPF.ar(combR, 12000);
+
+            // RIGHT: 2 series allpass (FreeVerb)
             apR = AllpassL.ar(combR, 341/sr, 341/sr, 0.5);
             apR = AllpassL.ar(apR, 441/sr, 441/sr, 0.5);
-            
-            // Crossfeed for stereo width
-            wetL = apL + (apR * 0.3);
-            wetR = apR + (apL * 0.3);
-            
-            // Mix formula from original C++
-            wetL = sig[0] - ((sig[0] - wetL) * mix);
-            wetR = sig[1] - ((sig[1] - wetR) * mix);
-            
-            Out.ar(out, [wetL, wetR]);
-        }).add;
 
-        // Tape delay
-        SynthDef(\analogTapeDelay, {
-            arg in=0, out=0,
-                delayTime=0.5, feedback=0.5, sendAmount=0.5,
-                wowAmount=0.02, wowRate=0.3,
-                flutterAmount=0.01, flutterRate=6,
-                tapeAge=0.3, saturation=0.4, hiss=0.02,
-                lpf=4000, hpf=80;
-            
-            var sig, delayed, modDelay, wow, flutter, noise, saturated, tapeDegradation;
-            
-            sig = In.ar(in, 2);
-            
-            wow = SinOsc.ar(wowRate) * (wowAmount * delayTime);
-            flutter = LFNoise1.ar(flutterRate) * (flutterAmount * delayTime);
-            
-            modDelay = Lag.kr(delayTime, 0.5) + wow + flutter;
-            modDelay = modDelay.clip(0.05, 5.0);
-            
-            delayed = DelayC.ar(
-                (sig * sendAmount) + (LocalIn.ar(2) * feedback),
-                5.5,
-                modDelay
-            );
-            
-            saturated = (delayed * (1 + (saturation * 3))).tanh * 0.8;
-            saturated = LPF.ar(saturated, lpf * (1 - (tapeAge * 0.6)));
-            saturated = HPF.ar(saturated, hpf);
-            
-            noise = PinkNoise.ar(hiss * 0.15) ! 2;
-            saturated = saturated + noise;
-            
-            tapeDegradation = LFNoise0.ar(0.3).range(1 - (tapeAge * 0.15), 1.0);
-            saturated = saturated * tapeDegradation;
-            
-            LocalOut.ar(saturated);
-            Out.ar(out, saturated);
-        }).add;
+            // Reverb mix: sig - (sig - wet) * mix (matching C++ exactly)
+            verbL = apL;
+            verbR = apR;
+            sampL = sampL - ((sampL - verbL) * kVerbMix);
+            sampR = sampR - ((sampR - verbR) * kVerbMix);
 
-        // Main voice
-        SynthDef(\audreyVoice, {
-            arg out=0, revBus=0, tapeBus=0,
-                freq=220,
-                feedbackGain=0.5,
-                feedbackBodyDelay=0.01,
-                brightness=0.98,
-                damping=0.4,
-                lpfCutoff=18000, lpfQ=0.9,
-                hpfCutoff=60, hpfQ=0.9,
-                overdriveDrive=0.4,
-                masterLevel=0.8;
-            
-            var exciter, fbIn, fbDelayL, fbDelayR, inL, inR;
-            var stringL, stringR, dampingFreq, dampingCutoff;
-            var overdriveL, overdriveR, filteredL, filteredR, sig;
-            var sr, thresh;
-            
-            sr = SampleRate.ir;
-            
-            // Continuous exciter at -90dBFS
-            exciter = WhiteNoise.ar(0.00003162);
-            
-            // Feedback body delay (0.8s lag for onepole equivalent)
-            feedbackBodyDelay = Lag.kr(feedbackBodyDelay.clip(0.001, 0.1), 0.8);
-            
-            fbIn = LocalIn.ar(2);
-            fbDelayL = DelayL.ar(fbIn[0], 0.15, feedbackBodyDelay);
-            fbDelayR = DelayL.ar(fbIn[1], 0.15, 
-                (feedbackBodyDelay - (4 / sr)).max(0.001));
-            
-            inL = exciter + fbDelayL;
-            inR = exciter + fbDelayR;
-            
-            // Karplus-Strong string
-            stringL = CombL.ar(inL, 8192/sr, (1/freq).clip(4/sr, 8192/sr), 
-                10 / (1.01 - damping));
-            stringR = CombL.ar(inR, 8192/sr, (1/freq).clip(4/sr, 8192/sr), 
-                10 / (1.01 - damping));
-            
-            // KS internal processing (matching C++ flow):
-            // 1. Clip ±20
-            stringL = stringL.clip(-20, 20);
-            stringR = stringR.clip(-20, 20);
-            
-            // 2. DC blocker
-            stringL = LeakDC.ar(stringL);
-            stringR = LeakDC.ar(stringR);
-            
-            // 3. Scale 0.8
-            stringL = stringL * 0.8;
-            stringR = stringR * 0.8;
-            
-            // 4. Dynamic damping filter (key to brightness/damping working)
-            dampingCutoff = (12 + (damping * damping * 60) + (brightness * 24))
-                .clip(12, 84);
-            dampingFreq = freq * (2 ** (dampingCutoff / 12));
-            dampingFreq = (dampingFreq * sr).clip(20, 20000);
-            
-            stringL = LPF.ar(stringL, dampingFreq);
-            stringR = LPF.ar(stringR, dampingFreq);
-            
-            // Overdrive (after KS, before biquads)
-            thresh = 0.7;
-            overdriveL = (stringL * (1 + (overdriveDrive * stringL.abs)))
-                .clip(thresh.neg, thresh);
-            overdriveR = (stringR * (1 + (overdriveDrive * stringR.abs)))
-                .clip(thresh.neg, thresh);
-            
-            // Biquad filters (order: LPF → HPF like C++)
-            filteredL = BLowPass.ar(overdriveL, lpfCutoff, 1/lpfQ);
-            filteredR = BLowPass.ar(overdriveR, lpfCutoff, 1/lpfQ);
-            filteredL = BHiPass.ar(filteredL, hpfCutoff, 1/hpfQ);
-            filteredR = BHiPass.ar(filteredR, hpfCutoff, 1/hpfQ);
-            
-            sig = [filteredL, filteredR];
-            
-            Out.ar(revBus, sig);
-            Out.ar(tapeBus, sig);
-            
-            // Feedback write
-            LocalOut.ar(sig * feedbackGain);
-            
-            Out.ar(out, sig * masterLevel);
-        }).add;
+            // ============================================
+            // ECHO DELAY (matching EchoDelay.h)
+            // ============================================
 
-        // Limiter
-        SynthDef(\audreyLimiter, {
-            arg in=0, out=0, thresh=0.7;
-            var sig;
-            sig = In.ar(in, 2);
-            sig = Limiter.ar(sig, thresh, 0.01);
-            Out.ar(out, sig);
+            // C++ EchoDelay::Process:
+            //   out = delayLine_.Read();
+            //   out = bpf_.Process(out);      // BPF12 @ 800Hz, Q=1.0
+            //   out = daisysp::SoftClip(out); // tanh
+            //   delayLine_.Write(out * feedback_ + in);
+            //   return out;
+
+            // BPF(800, 1.0) + SoftClip on echo feedback return
+            echoTapeL = BPF.ar(echoRetL, 800, 1.0).tanh;
+            echoTapeR = BPF.ar(echoRetR, 800, 1.0).tanh;
+
+            // Delay with feedback (send from post-reverb signal)
+            echoOutL = DelayC.ar((sampL * kEchoSend) + (echoTapeL * kEchoFb), 5, kEchoTime);
+            echoOutR = DelayC.ar((sampR * kEchoSend) + (echoTapeR * kEchoFb), 5, kEchoTime);
+
+            // ============================================
+            // OUTPUT (matching C++ AudioCallback)
+            // ============================================
+
+            // C++: sampL = 0.5f * (sampL + echoL);
+            // C++: outL = sampL * output_level_;
+            // C++: limiter.ProcessBlock(OUT_L, size, 0.7f);
+            sampL = 0.5 * (sampL + echoOutL);
+            sampR = 0.5 * (sampR + echoOutR);
+
+            // Output with inline limiter (threshold=0.7, matching C++)
+            Out.ar(out, Limiter.ar([sampL, sampR] * kLevel, 0.7));
+
+            // ============================================
+            // FEEDBACK WRITE (cierra el loop)
+            // ============================================
+
+            // C++: fb_delayline_[0].Write(sampL * fb_gain_);
+            // C++: fb_delayline_[1].Write(sampR * fb_gain_);
+            // Main feedback with gain applied at write (like C++ original)
+            // Echo feedback without additional gain (gain is in echoFb param)
+            LocalOut.ar([sampL * kFbAmp, sampR * kFbAmp, echoOutL, echoOutR]);
+
         }).add;
 
         context.server.sync;
 
+        // === Instantiate synth ===
         synth = Synth.new(\audreyVoice, [
             \out, context.out_b,
-            \revBus, reverbBus,
-            \tapeBus, tapeDelayBus
+            \in, context.in_b
         ], target: context.xg);
 
-        reverbSynth = Synth.after(synth, \reverbSc, [
-            \in, reverbBus,
-            \out, context.out_b
-        ], target: context.xg);
-
-        tapeSynth = Synth.after(synth, \analogTapeDelay, [
-            \in, tapeDelayBus,
-            \out, context.out_b
-        ], target: context.xg);
-
-        limiterSynth = Synth.tail(context.xg, \audreyLimiter, [
-            \in, context.out_b,
-            \out, context.out_b
-        ]);
-
-        // Commands
-        this.addCommand(\feedbackGain, "f", { arg msg; synth.set(\feedbackGain, msg[1]); });
+        // === Commands (11, matching C++ FeedbackSynthControls) ===
         this.addCommand(\frequency, "f", { arg msg; synth.set(\freq, msg[1]); });
-        this.addCommand(\brightness, "f", { arg msg; synth.set(\brightness, msg[1]); });
-        this.addCommand(\damping, "f", { arg msg; synth.set(\damping, msg[1]); });
-        this.addCommand(\feedbackBodyDelay, "f", { arg msg; synth.set(\feedbackBodyDelay, msg[1]); });
-        this.addCommand(\lpfCutoff, "f", { arg msg; synth.set(\lpfCutoff, msg[1]); });
-        this.addCommand(\lpfQ, "f", { arg msg; synth.set(\lpfQ, msg[1]); });
-        this.addCommand(\hpfCutoff, "f", { arg msg; synth.set(\hpfCutoff, msg[1]); });
-        this.addCommand(\hpfQ, "f", { arg msg; synth.set(\hpfQ, msg[1]); });
-        this.addCommand(\overdriveDrive, "f", { arg msg; synth.set(\overdriveDrive, msg[1]); });
-        this.addCommand(\masterLevel, "f", { arg msg; synth.set(\masterLevel, msg[1]); });
-        
-        this.addCommand(\reverbMix, "f", { arg msg; reverbSynth.set(\mix, msg[1]); });
-        this.addCommand(\reverbFeedback, "f", { arg msg; reverbSynth.set(\feedback, msg[1]); });
-        this.addCommand(\reverbLpf, "f", { arg msg; reverbSynth.set(\lpf, msg[1]); });
-        
-        this.addCommand(\delayTime, "f", { arg msg; tapeSynth.set(\delayTime, msg[1]); });
-        this.addCommand(\delayFeedback, "f", { arg msg; tapeSynth.set(\feedback, msg[1]); });
-        this.addCommand(\delaySendAmount, "f", { arg msg; tapeSynth.set(\sendAmount, msg[1]); });
-        this.addCommand(\wowAmount, "f", { arg msg; tapeSynth.set(\wowAmount, msg[1]); });
-        this.addCommand(\wowRate, "f", { arg msg; tapeSynth.set(\wowRate, msg[1]); });
-        this.addCommand(\flutterAmount, "f", { arg msg; tapeSynth.set(\flutterAmount, msg[1]); });
-        this.addCommand(\flutterRate, "f", { arg msg; tapeSynth.set(\flutterRate, msg[1]); });
-        this.addCommand(\tapeAge, "f", { arg msg; tapeSynth.set(\tapeAge, msg[1]); });
-        this.addCommand(\tapeSaturation, "f", { arg msg; tapeSynth.set(\saturation, msg[1]); });
-        this.addCommand(\tapeHiss, "f", { arg msg; tapeSynth.set(\hiss, msg[1]); });
-        this.addCommand(\tapeLpf, "f", { arg msg; tapeSynth.set(\lpf, msg[1]); });
-        this.addCommand(\tapeHpf, "f", { arg msg; tapeSynth.set(\hpf, msg[1]); });
+        this.addCommand(\feedbackGain, "f", { arg msg; synth.set(\fbGain, msg[1]); });
+        this.addCommand(\feedbackBodyDelay, "f", { arg msg; synth.set(\body, msg[1]); });
+        this.addCommand(\lpfCutoff, "f", { arg msg; synth.set(\lpf, msg[1]); });
+        this.addCommand(\hpfCutoff, "f", { arg msg; synth.set(\hpf, msg[1]); });
+        this.addCommand(\reverbMix, "f", { arg msg; synth.set(\verbMix, msg[1]); });
+        this.addCommand(\reverbFeedback, "f", { arg msg; synth.set(\verbFb, msg[1]); });
+        this.addCommand(\echoSend, "f", { arg msg; synth.set(\echoSend, msg[1]); });
+        this.addCommand(\echoTime, "f", { arg msg; synth.set(\echoTime, msg[1]); });
+        this.addCommand(\echoFeedback, "f", { arg msg; synth.set(\echoFb, msg[1]); });
+        this.addCommand(\masterLevel, "f", { arg msg; synth.set(\level, msg[1]); });
     }
 
     free {
         synth.free;
-        reverbSynth.free;
-        tapeSynth.free;
-        limiterSynth.free;
-        reverbBus.free;
-        tapeDelayBus.free;
     }
 }
