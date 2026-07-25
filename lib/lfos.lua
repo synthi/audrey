@@ -10,6 +10,7 @@ local LFOs = {}
 
 LFOs.data = {}
 LFOs.overlay = nil
+LFOs.base_values = {}
 
 LFOs.WAVE_TRI = 1
 LFOs.WAVE_SLEW = 2   -- LFNoise with slew (replaces Perlin)
@@ -52,6 +53,36 @@ function LFOs.cleanup()
   end
   LFOs.data = {}
   LFOs.overlay = nil
+end
+
+-- Get base value (without LFO modulation)
+function LFOs.get_base_value(param_id)
+  if LFOs.base_values[param_id] ~= nil then
+    return LFOs.base_values[param_id]
+  end
+  local p = params:lookup_param(param_id)
+  return p and p:get() or 0
+end
+
+-- Get modulation info for a param: {lfos = {1,3}, pct = 0.37}
+function LFOs.get_modulation(param_id)
+  local lfo_ids = {}
+  local total_contrib = 0
+  local p = params:lookup_param(param_id)
+  if not p then return {lfos = {}, pct = 0} end
+  local range = p.controlspec.maxval - p.controlspec.minval
+  for i = 1, 5 do
+    if LFOs.data[i] then
+      for _, a in ipairs(LFOs.data[i].assignments) do
+        if a[1] == param_id then
+          table.insert(lfo_ids, i)
+          total_contrib = total_contrib + (a[3] or 0)
+          break
+        end
+      end
+    end
+  end
+  return {lfos = lfo_ids, pct = range > 0 and (total_contrib / range) or 0}
 end
 
 function LFOs.has_assignments(param_id)
@@ -222,6 +253,7 @@ function LFOs._tick(lfo_id)
 
     local current_raw = p:get()
     local base = current_raw - (a[3] or 0)
+    LFOs.base_values[param_id] = base
 
     -- Signed depth: wave_val (-1..+1) * depth (-1..+1) * range
     local range = p.controlspec.maxval - p.controlspec.minval

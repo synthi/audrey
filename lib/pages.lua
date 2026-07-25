@@ -111,7 +111,13 @@ function Pages.draw_param_page()
     if #name > 14 then name = string.sub(name, 1, 11) .. "..." end
     screen.text(name)
     screen.move(124, y)
-    screen.text_right(param:string())
+    -- Show base value if param has LFO modulation, else normal
+    if LFOs.has_assignments(param_id) then
+      local base_val = LFOs.get_base_value(param_id)
+      screen.text_right(string.format("%.3f", base_val))
+    else
+      screen.text_right(param:string())
+    end
   end
 end
 

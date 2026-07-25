@@ -43,29 +43,76 @@ end
 function UI.draw_overlay()
   if not UI.overlay_param then return end
   
+  local LFOs = require("audrey/lib/lfos")
   local param = params:lookup_param(UI.overlay_param)
   if not param then return end
   
-  screen.level(3)
-  screen.rect(14, 22, 100, 26)
-  screen.fill()
+  local has_lfo = LFOs.has_assignments(UI.overlay_param)
+  local base_val = LFOs.get_base_value(UI.overlay_param)
+  local mod = LFOs.get_modulation(UI.overlay_param)
   
+  -- Popup background (larger: 120x50, y=10-60)
+  screen.level(0)
+  screen.rect(4, 10, 120, 50)
+  screen.fill()
   screen.level(15)
-  screen.rect(14, 22, 100, 26)
+  screen.rect(4, 10, 120, 50)
   screen.stroke()
   
+  -- Param name (top)
   screen.level(15)
-  screen.move(64, 32)
-  screen.text_center(param.name)
+  screen.move(64, 20)
+  local name = param.name
+  if #name > 18 then name = string.sub(name, 1, 15) .. "..." end
+  screen.text_center(name)
   
-  screen.move(64, 42)
-  screen.text_center(param:string())
+  -- Base value (fixed, changes only with encoder)
+  screen.move(64, 30)
+  screen.text_center(string.format("%.3f", base_val))
   
-  local norm = (params:get(UI.overlay_param) - param.controlspec.minval) /
+  -- Bar 1: param value (0-100%, left to right)
+  local norm = (base_val - param.controlspec.minval) /
                (param.controlspec.maxval - param.controlspec.minval)
+  norm = util.clamp(norm, 0, 1)
   screen.level(8)
-  screen.rect(18, 44, 92 * norm, 2)
+  screen.rect(10, 34, 108 * norm, 2)
   screen.fill()
+  
+  if has_lfo then
+    -- Bar 2: LFO modulation (signed, centered at 0)
+    local pct = util.clamp(mod.pct, -1, 1)
+    local bar_center_x = 64
+    local bar_y = 42
+    local bar_half_width = 54
+    
+    -- Center line
+    screen.level(3)
+    screen.move(bar_center_x, bar_y)
+    screen.line_rel(bar_half_width, 0)
+    screen.move(bar_center_x, bar_y)
+    screen.line_rel(-bar_half_width, 0)
+    screen.stroke()
+    
+    -- Modulation bar
+    screen.level(15)
+    screen.move(bar_center_x, bar_y)
+    screen.line_rel(pct * bar_half_width, 0)
+    screen.stroke()
+    screen.circle(bar_center_x + pct * bar_half_width, bar_y, 2)
+    screen.fill()
+    
+    -- LFO labels + percentage
+    screen.level(4)
+    screen.move(10, 52)
+    local lfo_str = ""
+    for _, id in ipairs(mod.lfos) do
+      if lfo_str ~= "" then lfo_str = lfo_str .. "+" end
+      lfo_str = lfo_str .. "LFO" .. id
+    end
+    screen.text(lfo_str)
+    screen.move(118, 52)
+    screen.text_right(string.format("%+.1f%%", pct * 100))
+  end
 end
 
 -- LFO overlay: ncoco-style signed depth (-1..+1), continuous bar centered at 0
