@@ -171,6 +171,18 @@ function LFOs.clear_assignments(lfo_id)
   if _G.g then _G.g.screen_dirty = true end
 end
 
+-- Clear all LFO assignments (used on PSET load)
+function LFOs.clear_all()
+  for i = 1, 5 do
+    if LFOs.data[i] then
+      LFOs.data[i].assignments = {}
+    end
+  end
+  LFOs.overlay = nil
+  LFOs.base_values = {}
+  if _G.g then _G.g.screen_dirty = true end
+end
+
 -- ncoco exact: depth + delta/100, clamped -1..+1
 function LFOs.adjust_overlay(delta)
   if not LFOs.overlay then return end

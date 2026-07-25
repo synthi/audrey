@@ -1,5 +1,5 @@
 -- audrey
--- v7.4.1 - Grid reorganization + per-PSET snapshots
+-- v7.4.2 - Grid reorganization + per-PSET snapshots
 -- 2026-07-25
 --
 -- Changelog v7.3.0:
@@ -44,14 +44,48 @@ function init()
   Params.init_params()
   Pages.init()
   
-  -- PSET tracking for per-PSET snapshots
+  -- PSET tracking for per-PSET snapshots + LFO state
   g.pset_num = 1
   params.action_read = function(filename, silent, number)
     if number then g.pset_num = number end
     Snapshots.scan()
+    -- Clear all LFO connections before loading saved state
+    LFOs.clear_all()
+    -- Load LFO state from pset_XX_lfo.data
+    local lfo_file = _path.data .. "audrey/pset_" .. string.format("%02d", g.pset_num) .. "_lfo.data"
+    if util.file_exists(lfo_file) then
+      local ok, data = pcall(dofile, lfo_file)
+      if ok and data then
+        LFOs.set_state(data)
+      end
+    end
   end
   params.action_write = function(filename, name, number)
     if number then g.pset_num = number end
+    -- Save LFO state to pset_XX_lfo.data
+    local lfo_file = _path.data .. "audrey/pset_" .. string.format("%02d", g.pset_num) .. "_lfo.data"
+    local f = io.open(lfo_file, "w")
+    if f then
+      local state = LFOs.get_state()
+      f:write("return {\n")
+      for i = 1, 5 do
+        local s = state[i]
+        if s then
+          f:write("  [" .. i .. "] = {\n")
+          f:write("    freq = " .. s.freq .. ",\n")
+          f:write("    wave = " .. s.wave .. ",\n")
+          f:write("    enabled = " .. tostring(s.enabled) .. ",\n")
+          f:write("    assignments = {\n")
+          for _, a in ipairs(s.assignments) do
+            f:write('      {"' .. a[1] .. '", ' .. a[2] .. "},\n")
+          end
+          f:write("    },\n")
+          f:write("  },\n")
+        end
+      end
+      f:write("}\n")
+      f:close()
+    end
   end
   
   Snapshots.init()
