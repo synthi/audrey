@@ -1,19 +1,5 @@
 -- params.lua
--- v7.0.0 - Parameter mappings faithful to Audrey-II C++ original
--- 11 parameters matching FeedbackSynthControls.cpp
---
--- C++ original parameter list:
---   Frequency (16-72 nn, lin, smooth 0.2s)
---   FeedbackGain (-60 to 12 dB, lin, smooth 0.05s)
---   FeedbackBody (0.001-0.1 s, exp, smooth 1.0s)
---   FeedbackLPFCutoff (100-18000 Hz, log, smooth 0.05s)
---   FeedbackHPFCutoff (10-4000 Hz, log, smooth 0.05s)
---   ReverbMix (0-1, lin, smooth 0.05s)
---   ReverbDecay (0.2-1.0, lin, smooth 0.05s)
---   EchoDelaySend (0-1, exp, smooth 0.05s)
---   EchoDelayTime (0.05-5.0 s, exp, smooth 0.1s)
---   EchoDelayFeedback (0-1.5, lin, smooth 0.05s)
---   OutputVolume (0-1, exp, smooth 0.05s)
+-- v7.0.1 - Continuous frequency with magnetic snap + 11 params matching C++ original
 
 local Params = {}
 local musicutil = require("musicutil")
@@ -25,13 +11,19 @@ function Params.init_params()
     type = "control",
     id = "frequency",
     name = "Frequency",
-    controlspec = controlspec.new(16, 72, "lin", 1, 40, "nn"),
+    controlspec = controlspec.new(16, 72, "lin", 0.001, 40, ""),
     formatter = function(param)
-      local nn = math.floor(param:get())
-      local names = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"}
-      local oct = math.floor(nn / 12) - 1
-      local note = names[(nn % 12) + 1]
-      return note .. oct .. " (" .. string.format("%.1f", musicutil.note_num_to_freq(nn)) .. "Hz)"
+      local val = param:get()
+      local nearest_nn = math.floor(val + 0.5)
+      local dist = math.abs(val - nearest_nn)
+      if dist < 0.2 then
+        local names = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"}
+        local oct = math.floor(nearest_nn / 12) - 1
+        local note = names[(nearest_nn % 12) + 1]
+        return note .. oct .. " (" .. string.format("%.1f", musicutil.note_num_to_freq(nearest_nn)) .. "Hz)"
+      else
+        return string.format("%.1f Hz", musicutil.note_num_to_freq(val))
+      end
     end,
     action = function(x) engine.frequency(x) end
   }
@@ -94,7 +86,7 @@ function Params.init_params()
     type = "control",
     id = "echo_send",
     name = "Echo Send",
-    controlspec = controlspec.new(0.0, 1, "exp", 0.01, 0.0, ""),
+    controlspec = controlspec.new(0.001, 1, "exp", 0.01, 0.0, ""),
     action = function(x) engine.echoSend(x) end
   }
 

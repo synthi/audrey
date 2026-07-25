@@ -12,20 +12,7 @@ function UI.draw_header()
   screen.move(0, 6)
   screen.text("AUDREY")
   
-  local fb_val = params:get("feedback_gain")
-  local fb_norm = (fb_val + 60) / 72
-  local meter_x = 80
-  local meter_w = 48
-  local meter_h = 4
-  
-  screen.level(2)
-  screen.rect(meter_x, 2, meter_w, meter_h)
-  screen.stroke()
-  
-  screen.level(15)
-  screen.rect(meter_x, 2, meter_w * fb_norm, meter_h)
-  screen.fill()
-  
+
   screen.level(4)
   screen.move(0, 10)
   screen.line(128, 10)

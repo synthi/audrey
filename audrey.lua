@@ -69,7 +69,6 @@ end
 function key(n, z)
   if n == 1 then
     g.key1_down = (z == 1)
-    g.grid_shift_down = (z == 1)
   end
   
   if z == 1 then

@@ -29,10 +29,10 @@ Grid.knob_map = {
   {10, 6, "hpf_cutoff"},
   {8, 3, "reverb_mix"},
   {8, 5, "reverb_decay"},
-  {13, 5, "echo_send"},
-  {13, 7, "echo_time"},
+  {14, 5, "echo_send"},
+  {14, 7, "echo_time"},
   {12, 6, "echo_feedback"},
-  {13, 3, "master_level"},
+  {14, 3, "master_level"},
 }
 
 -- ============================================
