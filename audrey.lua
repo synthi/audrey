@@ -1,20 +1,21 @@
 -- audrey
--- v5.0.0 - Faithful port of Audrey-II (Daisy Seed) for norns
--- 2024-12-20
+-- v7.0.0 - Grid redesign: snapshots + Audrey-II knob layout
+-- 2026-07-24
 --
--- Changelog v5.0.0:
--- - Unified version numbering across all files
--- - Bidirectional norns ↔ grid sync
--- - Overlay system for grid feedback
--- - All signal flow matching C++ original
--- - ReverbSc clone, damping filter working
+-- Changelog v7.0.0:
+-- - Grid completely redesigned: snapshots (row 1), knobs (rows 2-7), SHIFT button (row 8)
+-- - Snapshots system replaces Presets (load/save/delete with gestures)
+-- - SHIFT button on grid synced with K1
+-- - Knobs: hold + K2/K3 to adjust parameter, overlay on press
+-- - Engine faithfully matches C++ original (11 params, reverb in loop, audio input L+R)
+-- - All parameter ranges verified against C++ FeedbackSynthControls
 
 engine.name = "Audrey"
 
 local UI = require("audrey/lib/ui")
 local Params = require("audrey/lib/params")
 local Pages = require("audrey/lib/pages")
-local Presets = require("audrey/lib/presets")
+local Snapshots = require("audrey/lib/snapshots")
 local Grid = require("audrey/lib/grid")
 
 g = {
@@ -24,13 +25,14 @@ g = {
   param_focus = 1,
   preset_focus = 1,
   encoders_enabled = true,
-  key1_down = false
+  key1_down = false,
+  grid_shift_down = false
 }
 
 function init()
   Params.init_params()
   Pages.init()
-  Presets.init()
+  Snapshots.init()
   Grid.init()
   
   screen_timer = metro.init()
@@ -40,6 +42,7 @@ function init()
       redraw()
       g.screen_dirty = false
     end
+    if Grid.connected then Grid.check_holds() end
   end
   screen_timer:start()
   
@@ -52,8 +55,7 @@ function init()
     grid_timer:start()
   end
   
-  print("audrey v5.0.0 initialized")
-  print("faithful port of Audrey-II")
+  print("audrey v7.0.0 initialized")
 end
 
 function cleanup()
@@ -67,32 +69,27 @@ end
 function key(n, z)
   if n == 1 then
     g.key1_down = (z == 1)
+    g.grid_shift_down = (z == 1)
   end
   
   if z == 1 then
     if n == 2 then
       Pages.prev_page()
-      if Grid.connected then
-        Grid.sync_page(g.current_page)
-      end
       g.screen_dirty = true
       
     elseif n == 3 then
       local page = Pages.page_list[g.current_page]
       
-      if page.name == "PRESETS" then
+      if page.name == "SNAPSHOTS" then
         if g.key1_down then
-          local name = "Preset " .. g.preset_focus
-          Presets.save(g.preset_focus, name)
+          local name = "Snapshot " .. g.preset_focus
+          Snapshots.save(g.preset_focus, name)
           print("Saved to slot " .. g.preset_focus)
         else
-          Presets.load(g.preset_focus)
+          Snapshots.load(g.preset_focus)
         end
       else
         Pages.next_page()
-        if Grid.connected then
-          Grid.sync_page(g.current_page)
-        end
       end
       
       g.screen_dirty = true
@@ -102,6 +99,13 @@ end
 
 function enc(n, delta)
   if not g.encoders_enabled then return end
+  
+  -- If a grid knob is active, encoders control that param
+  if Grid.connected and Grid.active_knob then
+    Grid.encoder_delta(delta)
+    g.screen_dirty = true
+    return
+  end
   
   if n == 1 then
     params:delta("feedback_gain", delta)

@@ -1,12 +1,6 @@
 -- ui.lua
--- v5.0.0 - UI drawing with overlay system
--- 2024-12-20
---
--- Changelog v5.0.0:
--- - Unified version numbering
--- - Overlay system for grid feedback (2 second display)
--- - Bars at level 1 (very dim, don't obscure text)
--- - Text always drawn last at level 15
+-- v7.0.0 - UI drawing with overlay system + grid knob support
+-- 2026-07-24
 
 local UI = {}
 
@@ -52,6 +46,28 @@ function UI.show_param_overlay(param_id)
   end)
   
   _G.g.screen_dirty = true
+end
+
+-- Called when a grid knob is pressed (momentary overlay, no timeout)
+function UI.activate_knob(param_id)
+  UI.overlay_param = param_id
+  if UI.overlay_timer then
+    clock.cancel(UI.overlay_timer)
+    UI.overlay_timer = nil
+  end
+  _G.g.screen_dirty = true
+end
+
+-- Called when a grid knob is released (clears overlay after short delay)
+function UI.deactivate_knob()
+  if UI.overlay_timer then
+    clock.cancel(UI.overlay_timer)
+  end
+  UI.overlay_timer = clock.run(function()
+    clock.sleep(0.5)
+    UI.overlay_param = nil
+    _G.g.screen_dirty = true
+  end)
 end
 
 function UI.draw_overlay()

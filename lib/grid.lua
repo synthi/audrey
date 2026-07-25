@@ -1,24 +1,69 @@
 -- grid.lua
--- v6.0.0 - Grid 128 (16x8) control with bidirectional sync
--- Updated for 11 params (matching C++ original)
+-- v7.0.0 - Redesigned grid: snapshots + shift + knob layout (Audrey-II original)
+--
+-- Layout:
+--   Row 1: Snapshots 1-16 (load/save/delete with gestures)
+--   Rows 2-7: Audrey-II knob layout (hold + K2/K3 to adjust)
+--   Row 8, Col 1: SHIFT button (momentary, same as K1)
+--   All other cells: unused (brightness 0)
+--
+-- Knob mapping (col, row):
+--   FREQ (2,6)  FBGN (4,4)  BODY (8,7)  LPF (6,6)   HPF (10,6)
+--   DW   (8,3)  VDEC (8,5)  ESND (13,5) ETIM (13,7) EFB (12,6)
+--   OUT  (13,3)
 
 local Grid = {}
 local grid_dev = grid.connect()
 
 Grid.connected = false
-Grid.param_select = 1
 
-local function has_param(id)
-  return (id ~= nil) and (params.lookup[id] ~= nil)
-end
-
-Grid.quick_access_params = {
-  "frequency", "feedback_gain", "feedback_body_delay",
-  "lpf_cutoff", "hpf_cutoff", "reverb_mix", "reverb_decay",
-  "echo_send", "echo_time", "echo_feedback", "master_level",
-  "frequency", "feedback_gain", "reverb_mix", "echo_send", "master_level"
+-- ============================================
+-- KNOB LAYOUT (11 params in Audrey-II positions)
+-- ============================================
+-- Each entry: {col, row, param_id}
+Grid.knob_map = {
+  {2, 6, "frequency"},
+  {4, 4, "feedback_gain"},
+  {8, 7, "feedback_body_delay"},
+  {6, 6, "lpf_cutoff"},
+  {10, 6, "hpf_cutoff"},
+  {8, 3, "reverb_mix"},
+  {8, 5, "reverb_decay"},
+  {13, 5, "echo_send"},
+  {13, 7, "echo_time"},
+  {12, 6, "echo_feedback"},
+  {13, 3, "master_level"},
 }
 
+-- ============================================
+-- SNAPSHOT GESTURE TRACKING
+-- ============================================
+Grid.snapshot_press_time = {}   -- {slot = clock_beats}
+Grid.snapshot_delete_warned = {}  -- {slot = bool}
+
+-- ============================================
+-- SHIFT STATE
+-- ============================================
+Grid.shift_down = false
+
+-- ============================================
+-- ACTIVE KNOB (for encoder adjustment)
+-- ============================================
+Grid.active_knob = nil  -- {col, row, param_id} or nil
+
+-- Helper: find knob at position
+local function find_knob(x, y)
+  for _, knob in ipairs(Grid.knob_map) do
+    if knob[1] == x and knob[2] == y then
+      return knob[3]
+    end
+  end
+  return nil
+end
+
+-- ============================================
+-- INIT
+-- ============================================
 function Grid.init()
   if grid_dev and grid_dev.device then
     Grid.connected = true
@@ -30,142 +75,201 @@ function Grid.init()
   end
 end
 
-function Grid.sync_page(page_num)
-  Grid.current_synced_page = page_num
-  if Grid.connected then
+-- ============================================
+-- KEY HANDLER
+-- ============================================
+function Grid.key_handler(x, y, z)
+  -- ROW 1: Snapshots
+  if y == 1 and x <= 16 then
+    if z == 1 then
+      -- Press: start tracking hold time
+      Grid.snapshot_press_time[x] = clock.get_beats()
+      Grid.snapshot_delete_warned[x] = false
+    elseif z == 0 then
+      -- Release: check if tap or hold
+      local press_time = Grid.snapshot_press_time[x]
+      local elapsed = press_time and (clock.get_beats() - press_time) or 0
+      Grid.snapshot_press_time[x] = nil
+      Grid.snapshot_delete_warned[x] = nil
+      
+      if elapsed < 2.0 then
+        -- TAP: load if occupied, save if empty
+        local info = Grid.get_snapshot_info(x)
+        if info.exists then
+          if Grid.shift_down or _G.g.key1_down then
+            -- SHIFT + tap = SAVE (overwrite)
+            Grid.save_snapshot(x)
+          else
+            -- Normal tap = LOAD
+            Grid.load_snapshot(x)
+          end
+        else
+          -- Empty slot = SAVE
+          Grid.save_snapshot(x)
+        end
+      end
+    end
+    Grid.redraw()
+    return
+  end
+  
+  -- ROW 8, COL 1: SHIFT button
+  if x == 1 and y == 8 then
+    Grid.shift_down = (z == 1)
+    _G.g.grid_shift_down = (z == 1)
+    -- Also sync with key1 state
+    _G.g.key1_down = _G.g.key1_down or (z == 1)
+    Grid.redraw()
+    return
+  end
+  
+  -- KNOB AREA (rows 2-7)
+  local param_id = find_knob(x, y)
+  if param_id then
+    if z == 1 then
+      -- Press: activate knob, show overlay
+      Grid.active_knob = {col = x, row = y, param_id = param_id}
+      local UI = require("audrey/lib/ui")
+      UI.activate_knob(param_id)
+      _G.g.screen_dirty = true
+    elseif z == 0 then
+      -- Release: deactivate knob
+      if Grid.active_knob and Grid.active_knob.param_id == param_id then
+        Grid.active_knob = nil
+        local UI = require("audrey/lib/ui")
+        UI.deactivate_knob()
+        _G.g.screen_dirty = true
+      end
+    end
+    Grid.redraw()
+    return
+  end
+  
+  -- Any other button release clears active knob
+  if z == 0 and Grid.active_knob then
+    Grid.active_knob = nil
+    local UI = require("audrey/lib/ui")
+    UI.deactivate_knob()
+    _G.g.screen_dirty = true
     Grid.redraw()
   end
 end
 
-function Grid.key_handler(x, y, z)
-  if z == 1 then
-    if y == 1 and x <= 16 then
-      Grid.handle_preset(x)
-    elseif y == 2 and x <= 6 then
-      _G.g.current_page = x
-      _G.g.param_focus = 1
-      _G.g.screen_dirty = true
-      Grid.sync_page(x)
-    elseif y == 3 then
-      Grid.param_select = x
-      _G.g.screen_dirty = true
-    elseif y >= 4 and y <= 6 then
-      Grid.adjust_main_param(x, y)
-    elseif y == 7 then
-      local param_id = Grid.quick_access_params[x]
-      if has_param(param_id) then
-        Grid.adjust_quick_param(param_id, 0.05)
-      end
-    elseif y == 8 then
-      local param_id = Grid.quick_access_params[x]
-      if has_param(param_id) then
-        Grid.cycle_quick_param(param_id)
-      end
+-- ============================================
+-- SNAPSHOT HELPERS
+-- ============================================
+function Grid.get_snapshot_info(slot)
+  local Snapshots = require("audrey/lib/snapshots")
+  return Snapshots.get_slot_info(slot)
+end
+
+function Grid.load_snapshot(slot)
+  local Snapshots = require("audrey/lib/snapshots")
+  Snapshots.load(slot)
+  _G.g.screen_dirty = true
+end
+
+function Grid.save_snapshot(slot)
+  local Snapshots = require("audrey/lib/snapshots")
+  local name = "Snapshot " .. slot
+  Snapshots.save(slot, name)
+  _G.g.screen_dirty = true
+end
+
+function Grid.delete_snapshot(slot)
+  local Snapshots = require("audrey/lib/snapshots")
+  Snapshots.delete(slot)
+  _G.g.screen_dirty = true
+end
+
+-- ============================================
+-- ENCODER DELTA (called from audrey.lua when K2/K3 move)
+-- ============================================
+function Grid.encoder_delta(delta)
+  if Grid.active_knob then
+    local param_id = Grid.active_knob.param_id
+    if param_id and params:lookup_param(param_id) then
+      params:delta(param_id, delta)
     end
+    _G.g.screen_dirty = true
   end
-  Grid.redraw()
 end
 
-function Grid.handle_preset(slot)
-  if slot < 1 or slot > 16 then return end
-  local Presets = require("audrey/lib/presets")
-  Presets.load(slot)
-  _G.g.screen_dirty = true
-end
-
-function Grid.adjust_main_param(x, y)
-  local Pages = require("audrey/lib/pages")
-  local page = Pages.page_list[_G.g.current_page]
-  if x > #page.params then return end
-  local param_id = page.params[x]
-  if not has_param(param_id) then return end
-  local delta = 0
-  if y == 4 then delta = 0.05
-  elseif y == 5 then delta = 0.01
-  elseif y == 6 then delta = -0.05 end
-  params:delta(param_id, delta)
-  local UI = require("audrey/lib/ui")
-  UI.show_param_overlay(param_id)
-  _G.g.screen_dirty = true
-end
-
-function Grid.adjust_quick_param(param_id, delta)
-  if not has_param(param_id) then return end
-  params:delta(param_id, delta)
-  local UI = require("audrey/lib/ui")
-  UI.show_param_overlay(param_id)
-  _G.g.screen_dirty = true
-end
-
-function Grid.cycle_quick_param(param_id)
-  if not has_param(param_id) then return end
-  local current = params:get(param_id)
-  local param = params:lookup_param(param_id)
-  local range = param.controlspec.maxval - param.controlspec.minval
-  local new_val = current + (range * 0.1)
-  if new_val > param.controlspec.maxval then
-    new_val = param.controlspec.minval
-  end
-  params:set(param_id, new_val)
-  local UI = require("audrey/lib/ui")
-  UI.show_param_overlay(param_id)
-  _G.g.screen_dirty = true
-end
-
-function Grid.get_current_main_params()
-  local Pages = require("audrey/lib/pages")
-  local page = Pages.page_list[_G.g.current_page]
-  local params_list = {}
-  for i = 1, math.min(16, #page.params) do
-    params_list[i] = page.params[i]
-  end
-  return params_list
-end
-
+-- ============================================
+-- REDRAW
+-- ============================================
 function Grid.redraw()
   if not Grid.connected then return end
   grid_dev:all(0)
-  local Presets = require("audrey/lib/presets")
+  local Snapshots = require("audrey/lib/snapshots")
+  
+  -- Row 1: Snapshots
   for i = 1, 16 do
-    local info = Presets.get_slot_info(i)
-    local brightness = info.exists and 8 or 2
-    if Presets.current_slot == i then brightness = 15 end
+    local info = Snapshots.get_slot_info(i)
+    local brightness = 1  -- default: empty
+    if info.exists then
+      brightness = 3  -- occupied
+      if Snapshots.current_slot == i then
+        brightness = 11  -- current
+      end
+    end
+    -- Check for delete warning flash
+    if Grid.snapshot_press_time[i] and info.exists then
+      local elapsed = clock.get_beats() - Grid.snapshot_press_time[i]
+      if elapsed > 1.5 then
+        -- Flash during last 0.5s before delete
+        local phase = (elapsed * 4) % 1  -- 4 Hz flash
+        if phase < 0.5 then
+          brightness = 11
+        else
+          brightness = 0
+        end
+      end
+    end
     grid_dev:led(i, 1, util.clamp(math.floor(brightness), 0, 15))
   end
-  for x = 1, 6 do
-    local brightness = (x == _G.g.current_page) and 15 or 4
-    grid_dev:led(x, 2, brightness)
-  end
-  local main_params = Grid.get_current_main_params()
-  for x = 1, #main_params do
-    local id = main_params[x]
-    if has_param(id) then
-      local val = params:get(id)
-      local p = params:lookup_param(id)
-      local norm = (val - p.controlspec.minval) / (p.controlspec.maxval - p.controlspec.minval)
-      local b4, b5, b6 = 4, 8, 15
-      if norm > 0.66 then b4, b5, b6 = 15, 15, 15
-      elseif norm > 0.33 then b4, b5, b6 = 8, 15, 15 end
-      grid_dev:led(x, 3, (x == Grid.param_select) and 15 or 4)
-      grid_dev:led(x, 4, b4)
-      grid_dev:led(x, 5, b5)
-      grid_dev:led(x, 6, b6)
+  
+  -- Row 8, Col 1: SHIFT
+  local shift_brightness = (Grid.shift_down or _G.g.key1_down) and 14 or 1
+  grid_dev:led(1, 8, util.clamp(math.floor(shift_brightness), 0, 15))
+  
+  -- Knobs (rows 2-7)
+  for _, knob in ipairs(Grid.knob_map) do
+    local col, row, param_id = knob[1], knob[2], knob[3]
+    local brightness = 5  -- default: visible
+    if Grid.active_knob and Grid.active_knob.col == col and Grid.active_knob.row == row then
+      brightness = 14  -- pressed
     end
+    grid_dev:led(col, row, util.clamp(math.floor(brightness), 0, 15))
   end
-  for x = 1, 16 do
-    local id = Grid.quick_access_params[x]
-    if has_param(id) then
-      local val = params:get(id)
-      local p = params:lookup_param(id)
-      local norm = (val - p.controlspec.minval) / (p.controlspec.maxval - p.controlspec.minval)
-      local brightness = util.clamp(math.floor(norm * 15 + 0.5), 0, 15)
-      grid_dev:led(x, 7, 4)
-      grid_dev:led(x, 8, brightness)
-    end
-  end
+  
   grid_dev:refresh()
 end
 
+-- ============================================
+-- HOLD CHECK (called from redraw timer in audrey.lua)
+-- ============================================
+function Grid.check_holds()
+  for slot = 1, 16 do
+    if Grid.snapshot_press_time[slot] then
+      local elapsed = clock.get_beats() - Grid.snapshot_press_time[slot]
+      if elapsed >= 2.0 then
+        -- Delete!
+        local info = Grid.get_snapshot_info(slot)
+        if info.exists then
+          Grid.delete_snapshot(slot)
+        end
+        Grid.snapshot_press_time[slot] = nil
+        Grid.snapshot_delete_warned[slot] = nil
+        Grid.redraw()
+      end
+    end
+  end
+end
+
+-- ============================================
+-- CLEANUP
+-- ============================================
 function Grid.cleanup()
   if Grid.connected then
     grid_dev:all(0)

@@ -1,5 +1,5 @@
 -- params.lua
--- v6.0.0 - Parameter mappings faithful to Audrey-II C++ original
+-- v7.0.0 - Parameter mappings faithful to Audrey-II C++ original
 -- 11 parameters matching FeedbackSynthControls.cpp
 --
 -- C++ original parameter list:
@@ -94,7 +94,7 @@ function Params.init_params()
     type = "control",
     id = "echo_send",
     name = "Echo Send",
-    controlspec = controlspec.new(0.001, 1, "exp", 0.01, 0.0, ""),
+    controlspec = controlspec.new(0.0, 1, "exp", 0.01, 0.0, ""),
     action = function(x) engine.echoSend(x) end
   }
 
