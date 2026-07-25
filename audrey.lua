@@ -1,5 +1,5 @@
 -- audrey
--- v7.3.1 - Grid reorganization + per-PSET snapshots
+-- v7.4.0 - Grid reorganization + per-PSET snapshots
 -- 2026-07-25
 --
 -- Changelog v7.3.0:
@@ -99,12 +99,10 @@ function key(n, z)
   
   local page = Pages.page_list[g.current_page]
   
-  -- LFO overlay active: K2=±polarity, K3=UNI↔BI
+  -- LFO overlay active: K2/K3 = flip polarity
   if LFOs.overlay and z == 1 then
-    if n == 2 then
-      LFOs.adjust_overlay(0, -1)
-    elseif n == 3 then
-      LFOs.adjust_overlay(0, 1)
+    if n == 2 or n == 3 then
+      LFOs.flip_polarity()
     end
     g.screen_dirty = true
     return
@@ -199,7 +197,7 @@ function enc(n, delta)
   -- If LFO overlay is active, control patch depth
   if LFOs.overlay then
     if n == 2 or n == 3 then
-      LFOs.adjust_overlay(delta, 0)
+      LFOs.adjust_overlay(delta)
     end
     g.screen_dirty = true
     return

@@ -1,6 +1,6 @@
 -- ui.lua
--- v7.2.0 - UI drawing with overlay system + LFO modulation popup
--- 2026-07-24
+-- v7.4.0 - ncoco-style LFO overlay (signed depth, no modes), decimal percentage
+-- 2026-07-25
 
 local UI = {}
 
@@ -12,7 +12,6 @@ function UI.draw_header()
   screen.move(0, 6)
   screen.text("AUDREY")
   
-
   screen.level(4)
   screen.move(0, 10)
   screen.line(128, 10)
@@ -69,8 +68,7 @@ function UI.draw_overlay()
   screen.fill()
 end
 
--- LFO overlay: copied from ncoco draw_patch_menu (ui.lua:250-259)
--- Bar centered at 0, negative=left, positive=right
+-- LFO overlay: ncoco-style signed depth (-1..+1), continuous bar centered at 0
 -- Bar is STATIC (shows depth setting, not modulated by LFO)
 function UI.draw_lfo_overlay()
   local LFOs = require("audrey/lib/lfos")
@@ -80,18 +78,8 @@ function UI.draw_lfo_overlay()
   local param = params:lookup_param(o.param_id)
   if not param then return end
   
-  -- Signed depth value (static, not modulated)
-  local signed_val = 0
-  if o.mode == "uni+" then
-    signed_val = o.depth
-  elseif o.mode == "uni-" then
-    signed_val = -o.depth
-  elseif o.mode == "bi+" then
-    signed_val = o.depth
-  else  -- bi-
-    signed_val = -o.depth
-  end
-  signed_val = util.clamp(signed_val, -1, 1)
+  -- Signed depth value (already -1..+1)
+  local signed_val = util.clamp(o.depth, -1, 1)
   
   -- Background (matching ncoco: 10,10,108,50)
   screen.level(0)
@@ -121,15 +109,15 @@ function UI.draw_lfo_overlay()
   screen.circle(64 + signed_val * 40, 40, 2)
   screen.fill()
   
-  -- Value percentage (top-right)
+  -- Value percentage (top-right) — decimal resolution
   screen.level(15)
   screen.move(115, 20)
-  screen.text_right(string.format("%.0f%%", signed_val * 100))
+  screen.text_right(string.format("%.1f%%", signed_val * 100))
   
   -- Controls hint
   screen.level(4)
   screen.move(14, 55)
-  screen.text("E2/E3:dpt  K2:±  K3:" .. o.mode)
+  screen.text("E2/E3:dpt  K2/K3:±")
 end
 
 return UI

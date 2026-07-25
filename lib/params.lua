@@ -41,6 +41,9 @@ function Params.init_params()
     id = "feedback_body_delay",
     name = "Feedback Body",
     controlspec = controlspec.new(0.001, 0.1, "lin", 0.0001, 0.001, "s"),
+    formatter = function(param)
+      return string.format("%.1f ms", param:get() * 1000)
+    end,
     action = function(x) engine.feedbackBodyDelay(x) end
   }
 

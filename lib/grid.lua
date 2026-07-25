@@ -227,7 +227,7 @@ end
 
 function Grid.encoder_delta(delta)
   if LFOs.overlay then
-    LFOs.adjust_overlay(delta, 0)
+    LFOs.adjust_overlay(delta)
     _G.g.screen_dirty = true
     return
   end

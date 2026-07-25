@@ -1,5 +1,5 @@
 -- snapshots.lua
--- v7.3.0 - Per-PSET snapshots (8 slots), saved in pset_XX/ subfolder
+-- v7.4.0 - Per-PSET snapshots (8 slots) + LFO state save/load
 
 local Snapshots = {}
 
@@ -54,6 +54,43 @@ function Snapshots.load_name(slot, path)
   return "Empty"
 end
 
+-- Save LFO state as a Lua table file (serialized for dofile)
+local function save_lfo_state(slot, path)
+  local LFOs = require("audrey/lib/lfos")
+  local state = LFOs.get_state()
+  local filename = path .. "snapshot_" .. slot .. "_lfo.data"
+  local f = io.open(filename, "w")
+  if not f then return end
+  f:write("return {\n")
+  for i = 1, 4 do
+    local s = state[i]
+    if s then
+      f:write("  [" .. i .. "] = {\n")
+      f:write("    freq = " .. s.freq .. ",\n")
+      f:write("    wave = " .. s.wave .. ",\n")
+      f:write("    enabled = " .. tostring(s.enabled) .. ",\n")
+      f:write("    assignments = {\n")
+      for _, a in ipairs(s.assignments) do
+        f:write('      {"' .. a[1] .. '", ' .. a[2] .. "},\n")
+      end
+      f:write("    },\n")
+      f:write("  },\n")
+    end
+  end
+  f:write("}\n")
+  f:close()
+end
+
+-- Load LFO state from file
+local function load_lfo_state(slot, path)
+  local filename = path .. "snapshot_" .. slot .. "_lfo.data"
+  if not util.file_exists(filename) then return end
+  local ok, data = pcall(dofile, filename)
+  if not ok or not data then return end
+  local LFOs = require("audrey/lib/lfos")
+  LFOs.set_state(data)
+end
+
 function Snapshots.save(slot, name)
   if slot < 1 or slot > Snapshots.num_slots then return false end
   name = name or ("S" .. slot)
@@ -63,7 +100,7 @@ function Snapshots.save(slot, name)
   local f = io.open(filename, "w")
   if f then
     f:write("-- " .. name .. "\n")
-    f:write("-- Audrey v7.3.0 snapshot\n")
+    f:write("-- Audrey v7.4.0 snapshot\n")
     f:write("-- Saved: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n\n")
     f:write("return {\n")
     f:write("  -- Synthesis\n")
@@ -84,6 +121,9 @@ function Snapshots.save(slot, name)
     Snapshots.write_param(f, "master_level")
     f:write("}\n")
     f:close()
+    
+    save_lfo_state(slot, path)
+    
     Snapshots.slots[slot] = { exists = true, name = name }
     Snapshots.current_slot = slot
     print("Snapshot saved to slot " .. slot .. ": " .. name)
@@ -99,7 +139,8 @@ end
 
 function Snapshots.load(slot)
   if slot < 1 or slot > Snapshots.num_slots then return false end
-  local filename = Snapshots.get_path() .. "snapshot_" .. slot .. ".pset"
+  local path = Snapshots.get_path()
+  local filename = path .. "snapshot_" .. slot .. ".pset"
   if util.file_exists(filename) == false then
     print("Snapshot slot " .. slot .. " is empty")
     return false
@@ -112,6 +153,10 @@ function Snapshots.load(slot)
       end
     end
     Snapshots.current_slot = slot
+    
+    -- Restore LFO state
+    load_lfo_state(slot, path)
+    
     print("Loaded snapshot " .. slot .. ": " .. Snapshots.slots[slot].name)
     return true
   end
@@ -120,9 +165,15 @@ end
 
 function Snapshots.delete(slot)
   if slot < 1 or slot > Snapshots.num_slots then return false end
-  local filename = Snapshots.get_path() .. "snapshot_" .. slot .. ".pset"
+  local path = Snapshots.get_path()
+  local filename = path .. "snapshot_" .. slot .. ".pset"
   if util.file_exists(filename) then
     os.remove(filename)
+    -- Also remove LFO state file
+    local lfo_filename = path .. "snapshot_" .. slot .. "_lfo.data"
+    if util.file_exists(lfo_filename) then
+      os.remove(lfo_filename)
+    end
     Snapshots.slots[slot] = { exists = false, name = "Empty" }
     if Snapshots.current_slot == slot then Snapshots.current_slot = nil end
     print("Deleted snapshot " .. slot)
