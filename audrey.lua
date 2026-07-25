@@ -130,11 +130,7 @@ function key(n, z)
   end
   
   if z == 1 then
-    if n == 2 then
-      Pages.prev_page()
-      g.screen_dirty = true
-      
-    elseif n == 3 then
+    if n == 3 then
       if page.name == "SNAPSHOTS" then
         if g.key1_down then
           local name = "Snapshot " .. g.preset_focus

@@ -255,9 +255,9 @@ function LFOs._tick(lfo_id)
     local base = current_raw - (a[3] or 0)
     LFOs.base_values[param_id] = base
 
-    -- Signed depth: wave_val (-1..+1) * depth (-1..+1) * range
+    -- Unipolar modulation: (wave_val+1)/2 (0..1) * depth (-1..+1) * range
     local range = p.controlspec.maxval - p.controlspec.minval
-    local contrib = wave_val * depth * range
+    local contrib = ((wave_val + 1) / 2) * depth * range
 
     a[3] = contrib
     local new_val = util.clamp(base + contrib, p.controlspec.minval, p.controlspec.maxval)

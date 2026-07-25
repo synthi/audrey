@@ -29,7 +29,9 @@ function Pages.init()
 end
 
 function Pages.next_page()
-  _G.g.current_page = util.clamp(_G.g.current_page + 1, 1, #Pages.page_list)
+  local next = _G.g.current_page + 1
+  if next > #Pages.page_list then next = 1 end
+  _G.g.current_page = next
   _G.g.param_focus = 1
 end
 
