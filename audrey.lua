@@ -94,16 +94,7 @@ function key(n, z)
       local lfo = LFOs.data[page.lfo_id]
       if not lfo then return end
       
-      if n == 1 then
-        -- K1: delete focused assignment
-        local cursor = Pages.lfo_cursor[page.lfo_id]
-        if lfo.assignments[cursor] then
-          table.remove(lfo.assignments, cursor)
-          Pages.lfo_cursor[page.lfo_id] = util.clamp(cursor, 1, math.max(1, #lfo.assignments))
-          g.screen_dirty = true
-        end
-        
-      elseif n == 2 then
+      if n == 2 then
         -- K2: toggle waveform
         lfo.wave = (lfo.wave == LFOs.WAVE_TRI) and LFOs.WAVE_PERLIN or LFOs.WAVE_TRI
         lfo.phase = 0

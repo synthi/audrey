@@ -1,5 +1,5 @@
 -- params.lua
--- v7.0.1 - Continuous frequency with magnetic snap + 11 params matching C++ original
+-- v7.2.0 - Continuous frequency with magnetic snap + 11 params matching C++ original
 
 local Params = {}
 local musicutil = require("musicutil")

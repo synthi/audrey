@@ -1,5 +1,5 @@
 -- ui.lua
--- v7.0.0 - UI drawing with overlay system + grid knob support
+-- v7.2.0 - UI drawing with overlay system + LFO modulation popup
 -- 2026-07-24
 
 local UI = {}

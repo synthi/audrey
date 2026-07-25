@@ -121,60 +121,59 @@ function Pages.draw_lfo_page(lfo_id)
   if not lfo then return end
 
   local wave_str = (lfo.wave == LFOs.WAVE_TRI) and "TRIA" or "PERL"
-  local enabled_str = lfo.enabled and "ON" or "OFF"
   
+  screen.level(0)
+  screen.rect(0, 0, 128, 64)
+  screen.fill()
   screen.level(15)
-  screen.move(64, 15)
-  screen.text_center("LFO " .. lfo_id .. "  " .. wave_str .. " " .. string.format("%.2f", lfo.freq) .. "Hz " .. enabled_str)
   
+  -- Title line
+  screen.move(5, 10)
+  screen.text("LFO " .. lfo_id)
+  screen.move(124, 10)
+  screen.text_right(wave_str .. " " .. string.format("%.2fHz", lfo.freq))
+  
+  -- Scope rect
+  screen.rect(10, 20, 108, 25)
+  screen.stroke()
+  
+  -- Draw scope (real voltage, like ncoco draw_scope)
+  Pages.draw_lfo_scope(lfo, 10, 20, 108, 25)
+  
+  -- Controls
   screen.level(4)
-  screen.move(2, 24)
-  screen.text("E2:sel E3:dp K1:DEL K2:WAVE K3:ON/OFF")
-  
-  local assignments = lfo.assignments
-  if #assignments == 0 then
-    screen.level(4)
-    screen.move(64, 38)
-    screen.text_center("No assignments")
-    screen.move(64, 46)
-    screen.text_center("Hold LFO"..lfo_id.." + tap knob to assign")
-  else
-    local y_start = 33
-    local y_spacing = 9
-    local cursor = Pages.lfo_cursor[lfo_id]
-    local view_start = math.max(1, cursor - 2)
-    local max_visible = 5
-    local visible_count = math.min(#assignments - view_start + 1, max_visible)
-    
-    for vi = 0, visible_count - 1 do
-      local ai = view_start + vi
-      if ai <= #assignments then
-        local a = assignments[ai]
-        local y = y_start + vi * y_spacing
-        
-        screen.level((ai == cursor) and 15 or 8)
-        local param = params:lookup_param(a[1])
-        local pname = param and param.name or a[1]
-        if #pname > 16 then pname = string.sub(pname, 1, 13) .. "..." end
-        screen.move(4, y)
-        screen.text(pname)
-        screen.move(124, y)
-        screen.text_right(a[3] .. " " .. string.format("%.3f", a[2]))
+  screen.move(2, 55)
+  screen.text("E2/E3:freq")
+  screen.move(64, 55)
+  screen.text("K2:" .. wave_str)
+  screen.move(124, 55)
+  screen.text_right("K3:" .. (lfo.enabled and "ON" or "OFF"))
+end
+
+-- Real voltage scope, copied from ncoco draw_scope (ui.lua:39-56)
+function Pages.draw_lfo_scope(lfo, x, y, w, h)
+  local hist = lfo.history
+  local head = lfo.history_head
+  local len = 128
+  screen.level(15)
+  local last_px, last_py = nil, nil
+  for i = 0, w - 1 do
+    if i < len then
+      local idx = (head - 1 - i - 1) % len + 1
+      local val = util.clamp(hist[idx], -1, 1)
+      local px = x + w - i
+      local py = y + h - (util.clamp((val + 1) / 2, 0, 1) * h)
+      if last_px then
+        screen.move(last_px, last_py)
+        screen.line(px, py)
+      else
+        screen.pixel(px, py)
       end
-    end
-    
-    if #assignments > max_visible then
-      screen.level(4)
-      if cursor > 2 then
-        screen.move(127, 38)
-        screen.text("^")
-      end
-      if cursor < #assignments then
-        screen.move(127, 58)
-        screen.text("v")
-      end
+      last_px = px
+      last_py = py
     end
   end
+  screen.stroke()
 end
 
 function Pages.draw_snapshot_page()
