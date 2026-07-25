@@ -157,6 +157,7 @@ function LFOs.remove_assignment(lfo_id, param_id)
   for idx, a in ipairs(LFOs.data[lfo_id].assignments) do
     if a[1] == param_id then
       table.remove(LFOs.data[lfo_id].assignments, idx)
+      LFOs.base_values[param_id] = nil
       LFOs.overlay = nil
       if _G.g then _G.g.screen_dirty = true end
       return
@@ -166,6 +167,10 @@ end
 
 function LFOs.clear_assignments(lfo_id)
   if not LFOs.data[lfo_id] then return end
+  -- Clear base_values for each param this LFO was modulating
+  for _, a in ipairs(LFOs.data[lfo_id].assignments) do
+    LFOs.base_values[a[1]] = nil
+  end
   LFOs.data[lfo_id].assignments = {}
   LFOs.overlay = nil
   if _G.g then _G.g.screen_dirty = true end

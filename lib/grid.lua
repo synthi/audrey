@@ -1,5 +1,5 @@
 -- grid.lua
--- v7.3.0 - Knobs rows 2-6, HPF↔LPF swapped, snapshots row 8 cols 9-16 (8 slots)
+-- v7.3.1 - Knobs rows 2-6, HPF↔LPF swapped, snapshots row 8 cols 9-16 (8 slots)
 --
 -- Layout:
 --   Row 1: empty
@@ -74,15 +74,26 @@ function Grid.key_handler(x, y, z)
     local slot = snap_index(x)
     if not slot then return end
     if z == 1 then
+      Grid.snapshot_press_time[slot] = clock.get_beats()
+    elseif z == 0 then
+      local press_time = Grid.snapshot_press_time[slot]
+      Grid.snapshot_press_time[slot] = nil
       local info = Grid.get_snapshot_info(slot)
       if Grid.shift_down then
         -- SHIFT + button = delete
         if info.exists then Grid.delete_snapshot(slot) end
       else
-        -- No SHIFT: load if exists, save if empty
+        local elapsed = press_time and (clock.get_beats() - press_time) or 0
         if info.exists then
-          Grid.load_snapshot(slot)
+          if elapsed >= 0.5 and Snapshots.current_slot == slot then
+            -- Hold 0.5s on active snapshot = update
+            Grid.save_snapshot(slot)
+          else
+            -- Tap = load
+            Grid.load_snapshot(slot)
+          end
         else
+          -- Empty = save
           Grid.save_snapshot(slot)
         end
       end
