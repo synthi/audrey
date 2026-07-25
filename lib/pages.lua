@@ -1,5 +1,5 @@
 -- pages.lua
--- v7.2.0 - 10 pages (6 synth + 4 LFO) + page indicators + LFO pages
+-- v7.3.0 - 10 pages (5 synth + 4 LFO + SNAPSHOTS) + page indicators
 
 local Pages = {}
 
@@ -64,7 +64,7 @@ function Pages.adjust_focused_param(delta)
       local sign = (delta > 0) and 1 or -1
       local cents = (math.abs(delta) ^ 3.5) * 1.5
       local ratio = 2 ^ (sign * cents / 1200)
-      lfo.freq = util.clamp(lfo.freq * ratio, 0.01, 100)
+      lfo.freq = util.clamp(lfo.freq * ratio, 0.01, 32)
       _G.g.screen_dirty = true
     end
   elseif #page.params > 0 then
@@ -120,7 +120,7 @@ function Pages.draw_lfo_page(lfo_id)
   local lfo = LFOs.data[lfo_id]
   if not lfo then return end
 
-  local wave_str = (lfo.wave == LFOs.WAVE_TRI) and "TRIA" or "PERL"
+  local wave_str = (lfo.wave == LFOs.WAVE_TRI) and "TRIA" or "SLEW"
   
   screen.level(0)
   screen.rect(0, 0, 128, 64)
@@ -186,11 +186,11 @@ function Pages.draw_snapshot_page()
   screen.text("E2: select  K3: load  K1+K3: save")
   local y_start = 33
   local y_spacing = 9
-  local view_start = math.max(1, _G.g.preset_focus - 2)
+  local view_start = math.max(1, math.min(_G.g.preset_focus - 1, Snapshots.num_slots - 3))
   for i = 0, 3 do
     local slot = view_start + i
-    if slot <= Snapshots.num_slots then
-      local y = y_start + (i * y_spacing)
+    if slot >= 1 and slot <= Snapshots.num_slots then
+      local y = y_start + i * y_spacing
       local info = Snapshots.get_slot_info(slot)
       screen.level(slot == _G.g.preset_focus and 15 or 8)
       screen.move(4, y)

@@ -34,14 +34,53 @@ El sonido se genera mediante un **bucle de realimentación** auto-oscilante: un 
 ### Keys
 | Key | Acción |
 |---|---|
-| **K1** | Shift (momentáneo, igual que SHIFT del grid) |
+| **K1** | Normal (K1+K3 guarda snapshot) |
 | **K2** | Página anterior |
 | **K3** | Página siguiente (o load/save snapshot en página SNAPSHOTS) |
 | **K1 + K3** | Guarda snapshot en slot actual |
 
 ## Grid 16x8
 
-### Fila 1: Snapshots (16 slots)
+### Fila 1: (vacía)
+### Filas 2-6: Knobs Audrey-II
+### Fila 7: (vacía)
+
+### Fila 8, Col 1: SHIFT (momentáneo, solo grid)
+### Fila 8, Cols 3-6: LFO 1-4
+### Fila 8, Cols 9-16: Snapshots (8 slots)
+
+```
+         Col1   Col2   Col3   Col4   Col5   Col6   Col7   Col8   Col9   Col10  Col11  Col12  Col13  Col14   Col15  Col16
+Row 1:  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]   [---]  [---]
+Row 2:  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [DW]   [---]  [---]  [---]  [---]  [---]  [OUT]   [---]  [---]
+Row 3:  [---]  [---]  [---]  [FBGN] [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]   [---]  [---]
+Row 4:  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [VDEC] [---]  [---]  [---]  [---]  [---]  [ESND]  [---]  [---]
+Row 5:  [---]  [FREQ] [---]  [---]  [---]  [HPF]  [---]  [---]  [---]  [LPF]  [---]  [EFB]  [---]  [---]   [---]  [---]
+Row 6:  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [BODY] [---]  [---]  [---]  [---]  [---]  [ETIM]  [---]  [---]
+Row 7:  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]   [---]  [---]
+Row 8:  [SH]   [---]  [LF1]  [LF2]  [LF3]  [LF4]  [---]  [---]  [S1]  [S2]  [S3]  [S4]  [S5]  [S6]  [S7]  [S8]
+```
+
+**Leyenda:**
+- FREQ: Frequency (2, 5)
+- FBGN: Feedback Gain (4, 3)
+- BODY: Feedback Body (8, 6)
+- HPF: Highpass Cutoff (6, 5)
+- LPF: Lowpass Cutoff (10, 5)
+- DW: Reverb Mix / Dry-Wet (8, 2)
+- VDEC: Reverb Decay (8, 4)
+- ESND: Echo Send (14, 4)
+- ETIM: Echo Time (14, 6)
+- EFB: Echo Feedback (12, 5)
+- OUT: Master Level (14, 2)
+
+**Interacción:**
+- Brillo normal: 5
+- Pulsar: overlay con nombre y valor (brillo 14/15 mientras pulsado)
+- Mantener pulsado + girar K2/K3: ajusta el parámetro
+- Soltar: overlay se limpia tras 0.5s
+
+### Snapshots (8 slots, Row 8 Cols 9-16)
 
 | Gesto | Slot ocupado | Slot vacío |
 |---|---|---|
@@ -53,46 +92,15 @@ El sonido se genera mediante un **bucle de realimentación** auto-oscilante: un 
 - Vacío: 1
 - Ocupado: 3
 - Cargado (current): 11
-- Parpadeo delete: alterna 11/0 cada 250ms
+- Parpadeo delete: alterna 11/0
 
-### Filas 2-7: Knobs Audrey-II
+**Por PSET:** Cada preset tiene sus propios 8 snapshots guardados en `dust/data/audrey/snapshots/pset_XX/snapshot_N.pset`. Al cambiar de PSET, los snapshots cambian automáticamente.
+### SHIFT (Row 8, Col 1)
 
-```
-         Col1   Col2   Col3   Col4   Col5   Col6   Col7   Col8   Col9   Col10  Col11  Col12  Col13  Col14   Col15  Col16
-Row 2:  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]   [---]  [---]
-Row 3:  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [DW]   [---]  [---]  [---]  [---]  [---]  [OUT]   [---]  [---]
-Row 4:  [---]  [---]  [---]  [FBGN] [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]   [---]  [---]
-Row 5:  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [VDEC] [---]  [---]  [---]  [---]  [---]  [ESND]  [---]  [---]
-Row 6:  [---]  [FREQ] [---]  [---]  [---]  [LPF]  [---]  [---]  [---]  [HPF]  [---]  [EFB]  [---]  [---]   [---]  [---]
-Row 7:  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [BODY] [---]  [---]  [---]  [---]  [---]  [ETIM]  [---]  [---]
-Row 8:  [SH]   [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]  [---]   [---]  [---]
-```
-
-**Leyenda:**
-- FREQ: Frequency (2, 6)
-- FBGN: Feedback Gain (4, 4)
-- BODY: Feedback Body (8, 7)
-- LPF: Lowpass Cutoff (6, 6)
-- HPF: Highpass Cutoff (10, 6)
-- DW: Reverb Mix / Dry-Wet (8, 3)
-- VDEC: Reverb Decay (8, 5)
-- ESND: Echo Send (14, 5)
-- ETIM: Echo Time (14, 7)
-- EFB: Echo Feedback (12, 6)
-- OUT: Master Level (14, 3)
-
-**Interacción:**
-- Brillo normal: 5
-- Pulsar: overlay con nombre y valor (brillo 14 mientras pulsado)
-- Mantener pulsado + girar K2/K3: ajusta el parámetro
-- Soltar: overlay se limpia tras 0.5s
-
-### Fila 8, Col 1: SHIFT
-
-- Brillo normal: 1 (apenas visible)
+- Brillo normal: 1
 - Brillo pulsado: 14
 - Momentáneo: solo activo mientras se mantiene
-- Funcionalmente idéntico a K1
+- **Independiente de K1** (solo en grid)
 
 ## Snapshots (sistema de archivos)
 
@@ -141,7 +149,7 @@ Audrey incluye 4 LFOs asignables a cualquier parámetro. Cada LFO puede tener **
 | Onda | Descripción |
 |------|-------------|
 | **Triángulo** | Onda triangular suave, sin escalones |
-| **Perlin** | Ruido Perlin (deriva suave, sin saltos) |
+| **SLEW** | LFNoise con slew (ruido aleatorio suave, no cíclico) |
 
 ### Modos de modulación
 | Modo | Display | Comportamiento |
@@ -156,26 +164,27 @@ Los LFOs usan **offset auto-correctivo**: si mueves un parámetro manualmente mi
 ### Grid: LFO buttons (Row 8, Cols 3-6)
 | Gesto | Efecto |
 |-------|--------|
-| **Pulsar LFO** | Entra en modo patching (5s timeout) |
-| **LFO + pulsar knob** | Conectar/desconectar parámetro |
-| **SHIFT + LFO + pulsar knob** | Eliminar esa asignación |
+| **Pulsar LFO** | Navega a página LFO + entra en modo patching |
+| **Hold LFO + tap knob** | Conectar (o mostrar overlay si ya conectado) |
+| **Hold knob + tap LFO** | Mismo patching (bidireccional) |
+| **SHIFT + LFO + knob** | Eliminar esa asignación (cualquier orden) |
 | **SHIFT + pulsar LFO** | Eliminar TODAS las asignaciones |
+| **Soltar LFO** | Sale de patch mode, overlay desaparece, vuelve a página anterior |
 
-**Brillo LFO buttons:** 2-12 oscilante según la forma de onda. Brillo 14 en modo patching.
+**Brillo LFO buttons:** 2-12 oscilante. Brillo 14 en patch mode. Brillo 15 si knob held + conectado.
 
 ### Knob highlight
 Al pulsar un knob, si tiene LFOs asignados → brillo **15** (en vez de 14).
 
-### Páginas UI (7-10): LFO 1-4
-Cada página muestra: forma de onda, frecuencia, estado ON/OFF, y lista scrolleable de asignaciones con cursor ▸.
+### Páginas UI (2-5): LFO 1-4
+Cada página muestra: forma de onda, frecuencia, estado ON/OFF, y scope de voltage real.
 
 | Control | Acción |
 |---------|--------|
 | **E1** | Ajusta frecuencia (cents logarítmicos) |
 | **E2** | Mueve cursor de asignación |
 | **E3** | Ajusta profundidad de la asignación enfocada |
-| **K1** | Elimina asignación enfocada |
-| **K2** | Cambia forma de onda (Triángulo / Perlin) |
+| **K2** | Cambia forma de onda (TRIA / SLEW) |
 | **K3** | Activa/desactiva LFO |
 
 ### Popup de modulación (al conectar o ajustar)
@@ -189,12 +198,13 @@ Cada página muestra: forma de onda, frecuencia, estado ON/OFF, y lista scrollea
 
 ## Versión
 
-v7.2.0 — Basado en Audrey-II original C++ por infrasonic/synthi
+v7.3.0 — Basado en Audrey-II original C++ por infrasonic/synthi
 
 ## Historial de Versiones
 
 | Versión | Cambios |
 |---------|---------|
-| v7.2.0 | 4 LFOs con offset auto-correctivo, page indicators (10 bolitas), frecuencia min C0 |
+| v7.3.0 | Snapshots 8 slots en Row 8, per-PSET, knobs rows 2-6, HPF↔LPF, SHIFT momentáneo |
+| v7.2.0 | 4 LFOs con offset auto-correctivo, LFNoise con slew, page indicators, 60 Hz |
 | v7.1.0 | Aceleración de encoders con `params:set()`, todo "lin", steps finos |
-| v7.0.0 | Grid redesign, snapshots, engine fiel al C++ original |
+| v7.0.0 | Grid redesign, engine fiel al C++ original |

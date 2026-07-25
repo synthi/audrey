@@ -87,6 +87,7 @@ end
 
 -- LFO overlay: copied from ncoco draw_patch_menu (ui.lua:250-259)
 -- Bar centered at 0, negative=left, positive=right
+-- Bar is STATIC (shows depth setting, not modulated by LFO)
 function UI.draw_lfo_overlay()
   local LFOs = require("audrey/lib/lfos")
   local o = LFOs.overlay
@@ -95,18 +96,16 @@ function UI.draw_lfo_overlay()
   local param = params:lookup_param(o.param_id)
   if not param then return end
   
-  -- Get signed value based on mode
+  -- Signed depth value (static, not modulated)
   local signed_val = 0
   if o.mode == "uni+" then
     signed_val = o.depth
   elseif o.mode == "uni-" then
     signed_val = -o.depth
   elseif o.mode == "bi+" then
-    local lfo = LFOs.data[o.lfo_id]
-    signed_val = lfo and (lfo.value * o.depth) or 0
+    signed_val = o.depth
   else  -- bi-
-    local lfo = LFOs.data[o.lfo_id]
-    signed_val = lfo and (-lfo.value * o.depth) or 0
+    signed_val = -o.depth
   end
   signed_val = util.clamp(signed_val, -1, 1)
   

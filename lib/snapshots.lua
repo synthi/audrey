@@ -1,34 +1,46 @@
 -- snapshots.lua
--- v7.2.0 - Snapshot management system with PSET integration
--- Updated for 11 params (matching C++ original)
+-- v7.3.0 - Per-PSET snapshots (8 slots), saved in pset_XX/ subfolder
 
 local Snapshots = {}
 
-Snapshots.num_slots = 16
+Snapshots.num_slots = 8
 Snapshots.current_slot = nil
 Snapshots.slots = {}
-Snapshots.snapshot_path = _path.data .. "audrey/"
 
-function Snapshots.init()
-  if util.file_exists(Snapshots.snapshot_path) == false then
-    util.make_dir(Snapshots.snapshot_path)
+function Snapshots.get_path()
+  local pset_num = 1
+  if _G.g and _G.g.pset_num then
+    pset_num = _G.g.pset_num
   end
-  Snapshots.scan_snapshots()
+  return _path.data .. "audrey/snapshots/pset_" .. string.format("%02d", pset_num) .. "/"
 end
 
-function Snapshots.scan_snapshots()
+function Snapshots.init()
+  Snapshots.ensure_dirs()
+  Snapshots.scan()
+end
+
+function Snapshots.ensure_dirs()
+  local path = Snapshots.get_path()
+  if util.file_exists(path) == false then
+    util.make_dir(path)
+  end
+end
+
+function Snapshots.scan()
+  local path = Snapshots.get_path()
   for i = 1, Snapshots.num_slots do
-    local filename = Snapshots.snapshot_path .. "snapshot_" .. i .. ".pset"
+    local filename = path .. "snapshot_" .. i .. ".pset"
     Snapshots.slots[i] = {
       exists = util.file_exists(filename),
-      name = Snapshots.load_snapshot_name(i),
-      modified = false
+      name = Snapshots.load_name(i, path),
     }
   end
 end
 
-function Snapshots.load_snapshot_name(slot)
-  local filename = Snapshots.snapshot_path .. "snapshot_" .. slot .. ".pset"
+function Snapshots.load_name(slot, path)
+  path = path or Snapshots.get_path()
+  local filename = path .. "snapshot_" .. slot .. ".pset"
   if util.file_exists(filename) then
     local f = io.open(filename, "r")
     if f then
@@ -43,16 +55,15 @@ function Snapshots.load_snapshot_name(slot)
 end
 
 function Snapshots.save(slot, name)
-  if slot < 1 or slot > Snapshots.num_slots then
-    print("Invalid snapshot slot")
-    return false
-  end
-  name = name or ("Snapshot " .. slot)
-  local filename = Snapshots.snapshot_path .. "snapshot_" .. slot .. ".pset"
+  if slot < 1 or slot > Snapshots.num_slots then return false end
+  name = name or ("S" .. slot)
+  local path = Snapshots.get_path()
+  Snapshots.ensure_dirs()
+  local filename = path .. "snapshot_" .. slot .. ".pset"
   local f = io.open(filename, "w")
   if f then
     f:write("-- " .. name .. "\n")
-    f:write("-- Audrey v7.2.0 snapshot (faithful to C++ original)\n")
+    f:write("-- Audrey v7.3.0 snapshot\n")
     f:write("-- Saved: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n\n")
     f:write("return {\n")
     f:write("  -- Synthesis\n")
@@ -73,18 +84,12 @@ function Snapshots.save(slot, name)
     Snapshots.write_param(f, "master_level")
     f:write("}\n")
     f:close()
-    Snapshots.slots[slot] = {
-      exists = true,
-      name = name,
-      modified = false
-    }
+    Snapshots.slots[slot] = { exists = true, name = name }
     Snapshots.current_slot = slot
     print("Snapshot saved to slot " .. slot .. ": " .. name)
     return true
-  else
-    print("Error: could not write preset file")
-    return false
   end
+  return false
 end
 
 function Snapshots.write_param(f, param_id)
@@ -93,11 +98,8 @@ function Snapshots.write_param(f, param_id)
 end
 
 function Snapshots.load(slot)
-  if slot < 1 or slot > Snapshots.num_slots then
-    print("Invalid snapshot slot")
-    return false
-  end
-  local filename = Snapshots.snapshot_path .. "snapshot_" .. slot .. ".pset"
+  if slot < 1 or slot > Snapshots.num_slots then return false end
+  local filename = Snapshots.get_path() .. "snapshot_" .. slot .. ".pset"
   if util.file_exists(filename) == false then
     print("Snapshot slot " .. slot .. " is empty")
     return false
@@ -112,56 +114,32 @@ function Snapshots.load(slot)
     Snapshots.current_slot = slot
     print("Loaded snapshot " .. slot .. ": " .. Snapshots.slots[slot].name)
     return true
-  else
-    print("Error loading snapshot file")
-    return false
   end
+  return false
 end
 
 function Snapshots.delete(slot)
-  if slot < 1 or slot > Snapshots.num_slots then
-    return false
-  end
-  local filename = Snapshots.snapshot_path .. "snapshot_" .. slot .. ".pset"
+  if slot < 1 or slot > Snapshots.num_slots then return false end
+  local filename = Snapshots.get_path() .. "snapshot_" .. slot .. ".pset"
   if util.file_exists(filename) then
     os.remove(filename)
-    Snapshots.slots[slot] = {
-      exists = false,
-      name = "Empty",
-      modified = false
-    }
-    if Snapshots.current_slot == slot then
-      Snapshots.current_slot = nil
-    end
+    Snapshots.slots[slot] = { exists = false, name = "Empty" }
+    if Snapshots.current_slot == slot then Snapshots.current_slot = nil end
     print("Deleted snapshot " .. slot)
     return true
   end
   return false
 end
 
-function Snapshots.check_modified()
-  if Snapshots.current_slot == nil then
-    return false
-  end
-  return false
-end
-
 function Snapshots.get_slot_info(slot)
-  return Snapshots.slots[slot] or {
-    exists = false,
-    name = "Empty",
-    modified = false
-  }
+  return Snapshots.slots[slot] or { exists = false, name = "Empty" }
 end
 
 function Snapshots.quick_save()
   if Snapshots.current_slot then
-    local name = Snapshots.slots[Snapshots.current_slot].name
-    return Snapshots.save(Snapshots.current_slot, name)
-  else
-    print("No snapshot loaded, use save with slot number")
-    return false
+    return Snapshots.save(Snapshots.current_slot, Snapshots.slots[Snapshots.current_slot].name)
   end
+  return false
 end
 
 return Snapshots

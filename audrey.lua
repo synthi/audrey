@@ -1,15 +1,14 @@
 -- audrey
--- v7.2.0 - 4 LFOs + page indicators + encoder polish
--- 2026-07-24
+-- v7.3.0 - Grid reorganization + per-PSET snapshots
+-- 2026-07-25
 --
--- Changelog v7.2.0:
--- - 4 LFOs (tri/Perlin) assignable to any param via grid patching
--- - Self-correcting offset: moving a param manually doesn't break LFO modulation
--- - Page indicators (10 dots) at bottom of screen
--- - Frequency range lowered to C0 (MIDI 12)
--- - Master level default 0.5, feedback gain default -24 dB
--- - Smooth LFO output (60 Hz metro, no stepping)
--- - LFO pages (7-10) with scrollable assignment list
+-- Changelog v7.3.0:
+-- - Snapshots: 8 slots (row 8 cols 9-16), per-PSET (pset_XX/ subfolders)
+-- - Knobs shifted up 1 row (rows 2-6), HPF↔LPF swapped positions
+-- - SHIFT momentáneo, K1 independent
+-- - LFNoise with random slew (non-cyclic), depth to full param range
+-- - 60 Hz screen+grid, differential LED cache
+-- - LFO pages (2-5) with real-time voltage scope
 --
 -- Changelog v7.1.0:
 -- - All params switched from "exp" to "lin" with fine steps (encoder-native)
@@ -44,6 +43,17 @@ g = {
 function init()
   Params.init_params()
   Pages.init()
+  
+  -- PSET tracking for per-PSET snapshots
+  g.pset_num = params:get("pset") or 1
+  params.action_read = function(filename, silent, number)
+    if number then g.pset_num = number end
+    Snapshots.scan()
+  end
+  params.action_write = function(filename, name, number)
+    if number then g.pset_num = number end
+  end
+  
   Snapshots.init()
   Grid.init()
   LFOs.init()
@@ -70,7 +80,7 @@ function init()
     grid_timer:start()
   end
   
-  print("audrey v7.2.0 initialized")
+  print("audrey v7.3.0 initialized")
 end
 
 function cleanup()
@@ -109,13 +119,15 @@ function key(n, z)
       
       if n == 2 then
         -- K2: toggle waveform
-        lfo.wave = (lfo.wave == LFOs.WAVE_TRI) and LFOs.WAVE_PERLIN or LFOs.WAVE_TRI
-        lfo.phase = 0
-        lfo.perlin_noise = {
-          x = math.random() * 1000,
-          y = math.random() * 1000,
-          z = math.random() * 1000,
-        }
+        if lfo.wave == LFOs.WAVE_TRI then
+          lfo.wave = LFOs.WAVE_SLEW
+          lfo.slew_target = math.random() * 2 - 1
+          lfo.slew_current = 0
+          lfo.slew_timer = 0
+        else
+          lfo.wave = LFOs.WAVE_TRI
+          lfo.phase = 0
+        end
         g.screen_dirty = true
         
       elseif n == 3 then
