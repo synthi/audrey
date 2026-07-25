@@ -11,7 +11,7 @@ El sonido se genera mediante un **bucle de realimentación** auto-oscilante: un 
 | # | Parámetro | Rango | Default | Descripción |
 |---|---|---|---|---|
 | 1 | Frequency | 16-72 nn | 40 nn | Frecuencia en notas MIDI. Control continuo con magnetismo a notas exactas |
-| 2 | Feedback Gain | -60 a 12 dB | -60 dB | Ganancia del bucle de realimentación. >0 dB = auto-oscilación |
+| 2 | Feedback Gain | -60 a 12 dB | 0.8 dB | Ganancia del bucle de realimentación. >0 dB = auto-oscilación |
 | 3 | Feedback Body | 0.001-0.1 s | 0.001 s | Retardo corporal del feedback (estéreo decorrelado) |
 | 4 | Lowpass Cutoff | 100-18000 Hz | 18000 Hz | Filtro paso bajo del bucle de realimentación |
 | 5 | Highpass Cutoff | 10-4000 Hz | 250 Hz | Filtro paso alto del bucle de realimentación |
@@ -113,6 +113,18 @@ audio_in + noise(-90dB) + fb_return
   → Limiter(0.7) → OUT
 ```
 
+## Aceleración de Encoders
+
+Todos los parámetros usan mapeo **lineal** con alta resolución. La aceleración se aplica en función de la velocidad de giro del encoder:
+
+| Giro | Frecuencia (cents) | Resto de parámetros |
+|------|-------------------|---------------------|
+| **Lento** (delta=1) | 1 cent (imperceptible) | 1 step |
+| **Medio** (delta=3) | 27 cents (~¼ semitono) | 9 steps |
+| **Rápido** (delta=6) | 216 cents (~2 semitonos) | 36 steps |
+
+Esto permite precisión quirúrgica girando lento y barridos veloces girando rápido, sin necesidad de mapeo exponencial (que es errático con encoders).
+
 ## Versión
 
-v7.0.0 — Basado en Audrey-II original C++ por infrasonic/synthi
+v7.1.0 — Basado en Audrey-II original C++ por infrasonic/synthi

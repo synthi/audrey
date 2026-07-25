@@ -185,11 +185,25 @@ end
 -- ============================================
 -- ENCODER DELTA (called from audrey.lua when K2/K3 move)
 -- ============================================
+local function accelerate(delta)
+  local sign = (delta > 0) and 1 or -1
+  return sign * (math.abs(delta) ^ 2.0)
+end
+
+local function accelerate_freq(delta)
+  local sign = (delta > 0) and 1 or -1
+  return sign * (math.abs(delta) ^ 3.0) / 100
+end
+
 function Grid.encoder_delta(delta)
   if Grid.active_knob then
     local param_id = Grid.active_knob.param_id
     if param_id and params:lookup_param(param_id) then
-      params:delta(param_id, delta)
+      if param_id == "frequency" then
+        params:delta(param_id, accelerate_freq(delta))
+      else
+        params:delta(param_id, accelerate(delta))
+      end
     end
     _G.g.screen_dirty = true
   end

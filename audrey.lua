@@ -1,6 +1,13 @@
 -- audrey
--- v7.0.0 - Grid redesign: snapshots + Audrey-II knob layout
+-- v7.1.0 - Encoder acceleration + high-res linear params
 -- 2026-07-24
+--
+-- Changelog v7.1.0:
+-- - All params switched from "exp" to "lin" with fine steps (encoder-native)
+-- - Encoder acceleration: cubic for frequency (cents), quadratic for others
+-- - Slow turns = surgical precision, fast turns = quick sweeps
+-- - feedback_gain default changed from -60 to 0.8 dB
+-- - Fixed pages.lua crash (orphan 'end' + variable name mismatch)
 --
 -- Changelog v7.0.0:
 -- - Grid completely redesigned: snapshots (row 1), knobs (rows 2-7), SHIFT button (row 8)
@@ -96,6 +103,28 @@ function key(n, z)
   end
 end
 
+-- ============================================
+-- ENCODER ACCELERATION FUNCTIONS
+-- ============================================
+
+-- Frequency: cubic cents (delta=1→1cent, delta=6→216cents≈2 semitones)
+-- Returns delta in MIDI note numbers (1 cent = 0.01 MIDI notes)
+local function accelerate_freq(delta)
+  local sign = (delta > 0) and 1 or -1
+  return sign * (math.abs(delta) ^ 3.0) / 100
+end
+
+-- All other params: quadratic acceleration
+-- delta=1→1 step, delta=3→9 steps, delta=6→36 steps
+local function accelerate(delta)
+  local sign = (delta > 0) and 1 or -1
+  return sign * (math.abs(delta) ^ 2.0)
+end
+
+-- ============================================
+-- CONTROLS
+-- ============================================
+
 function enc(n, delta)
   if not g.encoders_enabled then return end
   
@@ -107,7 +136,7 @@ function enc(n, delta)
   end
   
   if n == 1 then
-    params:delta("feedback_gain", delta)
+    params:delta("feedback_gain", accelerate(delta))
   elseif n == 2 then
     Pages.change_param_focus(delta)
   elseif n == 3 then

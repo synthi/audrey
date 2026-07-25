@@ -32,7 +32,7 @@ function Params.init_params()
     type = "control",
     id = "feedback_gain",
     name = "Feedback Gain",
-    controlspec = controlspec.new(-60, 12, "lin", 0.1, -60, "dB"),
+    controlspec = controlspec.new(-60, 12, "lin", 0.01, 0.8, "dB"),
     action = function(x) engine.feedbackGain(x) end
   }
 
@@ -40,7 +40,7 @@ function Params.init_params()
     type = "control",
     id = "feedback_body_delay",
     name = "Feedback Body",
-    controlspec = controlspec.new(0.001, 0.1, "exp", 0.001, 0.001, "s"),
+    controlspec = controlspec.new(0.001, 0.1, "lin", 0.0001, 0.001, "s"),
     action = function(x) engine.feedbackBodyDelay(x) end
   }
 
@@ -50,7 +50,7 @@ function Params.init_params()
     type = "control",
     id = "lpf_cutoff",
     name = "Lowpass Cutoff",
-    controlspec = controlspec.new(100, 18000, "exp", 1, 18000, "Hz"),
+    controlspec = controlspec.new(100, 18000, "lin", 0.1, 18000, "Hz"),
     action = function(x) engine.lpfCutoff(x) end
   }
 
@@ -58,7 +58,7 @@ function Params.init_params()
     type = "control",
     id = "hpf_cutoff",
     name = "Highpass Cutoff",
-    controlspec = controlspec.new(10, 4000, "exp", 1, 250, "Hz"),
+    controlspec = controlspec.new(10, 4000, "lin", 0.1, 250, "Hz"),
     action = function(x) engine.hpfCutoff(x) end
   }
 
@@ -68,7 +68,7 @@ function Params.init_params()
     type = "control",
     id = "reverb_mix",
     name = "Reverb Mix",
-    controlspec = controlspec.new(0, 1, "lin", 0.01, 0.0, ""),
+    controlspec = controlspec.new(0, 1, "lin", 0.001, 0.0, ""),
     action = function(x) engine.reverbMix(x) end
   }
 
@@ -76,7 +76,7 @@ function Params.init_params()
     type = "control",
     id = "reverb_decay",
     name = "Reverb Decay",
-    controlspec = controlspec.new(0.2, 1.0, "lin", 0.01, 0.2, ""),
+    controlspec = controlspec.new(0.2, 1.0, "lin", 0.001, 0.2, ""),
     action = function(x) engine.reverbFeedback(x) end
   }
 
@@ -86,7 +86,7 @@ function Params.init_params()
     type = "control",
     id = "echo_send",
     name = "Echo Send",
-    controlspec = controlspec.new(0.001, 1, "exp", 0.01, 0.0, ""),
+    controlspec = controlspec.new(0.001, 1, "lin", 0.001, 0.0, ""),
     action = function(x) engine.echoSend(x) end
   }
 
@@ -94,7 +94,7 @@ function Params.init_params()
     type = "control",
     id = "echo_time",
     name = "Echo Time",
-    controlspec = controlspec.new(0.05, 5.0, "exp", 0.01, 0.5, "s"),
+    controlspec = controlspec.new(0.05, 5.0, "lin", 0.001, 0.5, "s"),
     action = function(x) engine.echoTime(x) end
   }
 
@@ -102,7 +102,7 @@ function Params.init_params()
     type = "control",
     id = "echo_feedback",
     name = "Echo Feedback",
-    controlspec = controlspec.new(0, 1.5, "lin", 0.01, 0.0, ""),
+    controlspec = controlspec.new(0, 1.5, "lin", 0.001, 0.0, ""),
     action = function(x) engine.echoFeedback(x) end
   }
 
@@ -112,7 +112,7 @@ function Params.init_params()
     type = "control",
     id = "master_level",
     name = "Master Level",
-    controlspec = controlspec.new(0.001, 1, "exp", 0.01, 0.5, ""),
+    controlspec = controlspec.new(0.001, 1, "lin", 0.001, 0.5, ""),
     action = function(x) engine.masterLevel(x) end
   }
 
