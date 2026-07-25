@@ -74,21 +74,14 @@ function Grid.key_handler(x, y, z)
     local slot = snap_index(x)
     if not slot then return end
     if z == 1 then
-      Grid.snapshot_press_time[slot] = clock.get_beats()
-      Grid.snapshot_delete_warned[slot] = false
-    elseif z == 0 then
-      local press_time = Grid.snapshot_press_time[slot]
-      local elapsed = press_time and (clock.get_beats() - press_time) or 0
-      Grid.snapshot_press_time[slot] = nil
-      Grid.snapshot_delete_warned[slot] = nil
-      if elapsed < 2.0 then
-        local info = Grid.get_snapshot_info(slot)
+      local info = Grid.get_snapshot_info(slot)
+      if Grid.shift_down then
+        -- SHIFT + button = delete
+        if info.exists then Grid.delete_snapshot(slot) end
+      else
+        -- No SHIFT: load if exists, save if empty
         if info.exists then
-          if Grid.shift_down then
-            Grid.save_snapshot(slot)
-          else
-            Grid.load_snapshot(slot)
-          end
+          Grid.load_snapshot(slot)
         else
           Grid.save_snapshot(slot)
         end
@@ -262,13 +255,6 @@ function Grid.redraw()
       b = 3
       if Snapshots.current_slot == i then b = 11 end
     end
-    if Grid.snapshot_press_time[i] and info.exists then
-      local elapsed = clock.get_beats() - Grid.snapshot_press_time[i]
-      if elapsed > 1.5 then
-        local phase = (elapsed * 4) % 1
-        if phase < 0.5 then b = 11 else b = 0 end
-      end
-    end
     if Grid.cache[col] and Grid.cache[col][8] ~= b then
       grid_dev:led(col, 8, util.clamp(math.floor(b), 0, 15))
       Grid.cache[col][8] = b
@@ -334,21 +320,6 @@ function Grid.redraw()
   end
   
   grid_dev:refresh()
-end
-
-function Grid.check_holds()
-  for slot = 1, 8 do
-    if Grid.snapshot_press_time[slot] then
-      local elapsed = clock.get_beats() - Grid.snapshot_press_time[slot]
-      if elapsed >= 2.0 then
-        local info = Grid.get_snapshot_info(slot)
-        if info.exists then Grid.delete_snapshot(slot) end
-        Grid.snapshot_press_time[slot] = nil
-        Grid.snapshot_delete_warned[slot] = nil
-        Grid.redraw()
-      end
-    end
-  end
 end
 
 function Grid.cleanup()

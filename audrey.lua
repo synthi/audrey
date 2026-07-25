@@ -68,7 +68,7 @@ function init()
       redraw()
       g.screen_dirty = false
     end
-    if Grid.connected then Grid.check_holds() end
+    -- check_holds removed: snapshots delete via SHIFT+button
   end
   screen_timer:start()
   
