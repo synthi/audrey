@@ -11,7 +11,7 @@ function Params.init_params()
     type = "control",
     id = "frequency",
     name = "Frequency",
-    controlspec = controlspec.new(16, 72, "lin", 0.001, 40, ""),
+    controlspec = controlspec.new(12, 72, "lin", 0.001, 40, ""),
     formatter = function(param)
       local val = param:get()
       local nearest_nn = math.floor(val + 0.5)
@@ -112,11 +112,15 @@ function Params.init_params()
     type = "control",
     id = "master_level",
     name = "Master Level",
-    controlspec = controlspec.new(0.001, 1, "lin", 0.001, 0.8, ""),
+    controlspec = controlspec.new(0.001, 1, "lin", 0.001, 0.5, ""),
     action = function(x) engine.masterLevel(x) end
   }
 
   params:bang()
+  
+  -- Force critical defaults (PSET load happens after init, but ensure display is correct)
+  params:set("master_level", 0.5)
+  params:set("feedback_gain", -24)
 end
 
 return Params

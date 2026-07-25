@@ -85,4 +85,48 @@ function UI.draw_overlay()
   screen.fill()
 end
 
+-- LFO overlay: shown when patching or adjusting LFO modulation
+function UI.draw_lfo_overlay()
+  local LFOs = require("audrey/lib/lfos")
+  local o = LFOs.overlay
+  if not o then return end
+  
+  local param = params:lookup_param(o.param_id)
+  if not param then return end
+  
+  -- Background
+  screen.level(3)
+  screen.rect(8, 16, 112, 36)
+  screen.fill()
+  
+  screen.level(15)
+  screen.rect(8, 16, 112, 36)
+  screen.stroke()
+  
+  -- Title
+  screen.level(15)
+  screen.move(64, 26)
+  screen.text_center("LFO " .. o.lfo_id .. " → " .. param.name)
+  
+  -- Depth bar
+  screen.level(8)
+  screen.rect(18, 32, 92, 3)
+  screen.stroke()
+  screen.rect(18, 32, 92 * o.depth, 3)
+  screen.fill()
+  
+  -- Mode and depth value
+  screen.level(15)
+  screen.move(18, 48)
+  screen.text(o.mode .. " " .. string.format("%.3f", o.depth))
+  
+  -- Controls hint
+  screen.level(4)
+  screen.move(14, 52)
+  screen.line(114, 52)
+  screen.stroke()
+  screen.move(64, 52)
+  screen.text_center("E2/E3:dpt  K2:±  K3:UNI/BI")
+end
+
 return UI

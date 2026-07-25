@@ -10,7 +10,7 @@ El sonido se genera mediante un **bucle de realimentación** auto-oscilante: un 
 
 | # | Parámetro | Rango | Default | Descripción |
 |---|---|---|---|---|
-| 1 | Frequency | 16-72 nn | 40 nn | Frecuencia en notas MIDI. Control continuo con magnetismo a notas exactas |
+| 1 | Frequency | C0-C5 (12-72 nn) | 40 nn | Frecuencia en notas MIDI. Control continuo con magnetismo a notas exactas |
 | 2 | Feedback Gain | -60 a 12 dB | -24 dB | Ganancia del bucle de realimentación. >0 dB = auto-oscilación |
 | 3 | Feedback Body | 0.001-0.1 s | 0.001 s | Retardo corporal del feedback (estéreo decorrelado) |
 | 4 | Lowpass Cutoff | 100-18000 Hz | 18000 Hz | Filtro paso bajo del bucle de realimentación |
@@ -20,7 +20,7 @@ El sonido se genera mediante un **bucle de realimentación** auto-oscilante: un 
 | 8 | Echo Send | 0-1 | 0.0 | Envío al eco (BPF 800Hz + saturación tape) |
 | 9 | Echo Time | 0.05-5.0 s | 0.5 s | Tiempo del eco |
 | 10 | Echo Feedback | 0-1.5 | 0.0 | Realimentación del eco (>1 = auto-oscilación) |
-| 11 | Master Level | 0-1 | 0.8 | Volumen de salida |
+| 11 | Master Level | 0-1 | 0.5 | Volumen de salida |
 
 ## Controles Norns
 
@@ -133,6 +133,68 @@ Los parámetros usan dos estrategias de aceleración, aplicadas según la veloci
 
 La aceleración permite precisión quirúrgica girando lento y barridos veloces girando rápido. Se usa `params:set()` directamente en vez de `params:delta()` para evitar el comportamiento errático de norns que interpreta delta como porcentaje del rango.
 
+## LFOs (4 moduladores)
+
+Audrey incluye 4 LFOs asignables a cualquier parámetro. Cada LFO puede tener **múltiples destinos** simultáneos con profundidad, polaridad (±) y modo (unipolar/bipolar) independientes.
+
+### Formas de onda
+| Onda | Descripción |
+|------|-------------|
+| **Triángulo** | Onda triangular suave, sin escalones |
+| **Perlin** | Ruido Perlin (deriva suave, sin saltos) |
+
+### Modos de modulación
+| Modo | Display | Comportamiento |
+|------|---------|----------------|
+| Unipolar + | `uni+` | 0 → +depth desde el valor actual |
+| Unipolar − | `uni-` | 0 → −depth desde el valor actual |
+| Bipolar + | `bi+` | −depth → +depth centrado en el valor actual |
+| Bipolar − | `bi-` | +depth → −depth centrado en el valor actual |
+
+Los LFOs usan **offset auto-correctivo**: si mueves un parámetro manualmente mientras está siendo modulado, el LFO se adapta automáticamente al nuevo valor sin saltos.
+
+### Grid: LFO buttons (Row 8, Cols 3-6)
+| Gesto | Efecto |
+|-------|--------|
+| **Pulsar LFO** | Entra en modo patching (5s timeout) |
+| **LFO + pulsar knob** | Conectar/desconectar parámetro |
+| **SHIFT + LFO + pulsar knob** | Eliminar esa asignación |
+| **SHIFT + pulsar LFO** | Eliminar TODAS las asignaciones |
+
+**Brillo LFO buttons:** 2-12 oscilante según la forma de onda. Brillo 14 en modo patching.
+
+### Knob highlight
+Al pulsar un knob, si tiene LFOs asignados → brillo **15** (en vez de 14).
+
+### Páginas UI (7-10): LFO 1-4
+Cada página muestra: forma de onda, frecuencia, estado ON/OFF, y lista scrolleable de asignaciones con cursor ▸.
+
+| Control | Acción |
+|---------|--------|
+| **E1** | Ajusta frecuencia (cents logarítmicos) |
+| **E2** | Mueve cursor de asignación |
+| **E3** | Ajusta profundidad de la asignación enfocada |
+| **K1** | Elimina asignación enfocada |
+| **K2** | Cambia forma de onda (Triángulo / Perlin) |
+| **K3** | Activa/desactiva LFO |
+
+### Popup de modulación (al conectar o ajustar)
+```
+┌─────────────────────────────────┐
+│  LFO 2 → Reverb Mix             │
+│  ████████████░░░░░░  uni+ 0.350 │
+│  E2/E3:dpt  K2:±  K3:UNI/BI    │
+└─────────────────────────────────┘
+```
+
 ## Versión
 
-v7.1.0 — Basado en Audrey-II original C++ por infrasonic/synthi
+v7.2.0 — Basado en Audrey-II original C++ por infrasonic/synthi
+
+## Historial de Versiones
+
+| Versión | Cambios |
+|---------|---------|
+| v7.2.0 | 4 LFOs con offset auto-correctivo, page indicators (10 bolitas), frecuencia min C0 |
+| v7.1.0 | Aceleración de encoders con `params:set()`, todo "lin", steps finos |
+| v7.0.0 | Grid redesign, snapshots, engine fiel al C++ original |

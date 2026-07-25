@@ -1,16 +1,17 @@
 -- grid.lua
--- v7.0.0 - Redesigned grid: snapshots + shift + knob layout (Audrey-II original)
+-- v7.2.0 - LFO buttons (row 8), patching gestures, knob highlight
 --
 -- Layout:
---   Row 1: Snapshots 1-16 (load/save/delete with gestures)
+--   Row 1: Snapshots 1-16
 --   Rows 2-7: Audrey-II knob layout (hold + K2/K3 to adjust)
---   Row 8, Col 1: SHIFT button (momentary, same as K1)
---   All other cells: unused (brightness 0)
+--   Row 8, Col 1: SHIFT button
+--   Row 8, Col 3-6: LFO 1-4 buttons
+--   All other cells: off
 --
--- Knob mapping (col, row):
---   FREQ (2,6)  FBGN (4,4)  BODY (8,7)  LPF (6,6)   HPF (10,6)
---   DW   (8,3)  VDEC (8,5)  ESND (14,5) ETIM (14,7) EFB (12,6)
---   OUT  (14,3)
+-- LFO gestures:
+--   Hold LFO btn + tap knob → connect (or disconnect if exists)
+--   SHIFT + hold LFO + tap knob → remove that assignment
+--   SHIFT + tap LFO → remove ALL assignments
 
 local Grid = {}
 local grid_dev = grid.connect()
@@ -20,7 +21,6 @@ Grid.connected = false
 -- ============================================
 -- KNOB LAYOUT (11 params in Audrey-II positions)
 -- ============================================
--- Each entry: {col, row, param_id}
 Grid.knob_map = {
   {2, 6, "frequency"},
   {4, 4, "feedback_gain"},
@@ -36,10 +36,15 @@ Grid.knob_map = {
 }
 
 -- ============================================
+-- LFO BUTTONS (row 8, cols 3-6)
+-- ============================================
+Grid.lfo_cols = {3, 4, 5, 6}
+
+-- ============================================
 -- SNAPSHOT GESTURE TRACKING
 -- ============================================
-Grid.snapshot_press_time = {}   -- {slot = clock_beats}
-Grid.snapshot_delete_warned = {}  -- {slot = bool}
+Grid.snapshot_press_time = {}
+Grid.snapshot_delete_warned = {}
 
 -- ============================================
 -- SHIFT STATE
@@ -49,7 +54,7 @@ Grid.shift_down = false
 -- ============================================
 -- ACTIVE KNOB (for encoder adjustment)
 -- ============================================
-Grid.active_knob = nil  -- {col, row, param_id} or nil
+Grid.active_knob = nil
 
 -- Helper: find knob at position
 local function find_knob(x, y)
@@ -82,29 +87,23 @@ function Grid.key_handler(x, y, z)
   -- ROW 1: Snapshots
   if y == 1 and x <= 16 then
     if z == 1 then
-      -- Press: start tracking hold time
       Grid.snapshot_press_time[x] = clock.get_beats()
       Grid.snapshot_delete_warned[x] = false
     elseif z == 0 then
-      -- Release: check if tap or hold
       local press_time = Grid.snapshot_press_time[x]
       local elapsed = press_time and (clock.get_beats() - press_time) or 0
       Grid.snapshot_press_time[x] = nil
       Grid.snapshot_delete_warned[x] = nil
       
       if elapsed < 2.0 then
-        -- TAP: load if occupied, save if empty
         local info = Grid.get_snapshot_info(x)
         if info.exists then
           if Grid.shift_down or _G.g.key1_down then
-            -- SHIFT + tap = SAVE (overwrite)
             Grid.save_snapshot(x)
           else
-            -- Normal tap = LOAD
             Grid.load_snapshot(x)
           end
         else
-          -- Empty slot = SAVE
           Grid.save_snapshot(x)
         end
       end
@@ -117,23 +116,65 @@ function Grid.key_handler(x, y, z)
   if x == 1 and y == 8 then
     Grid.shift_down = (z == 1)
     _G.g.grid_shift_down = (z == 1)
-    -- Also sync with key1 state
     _G.g.key1_down = _G.g.key1_down or (z == 1)
     Grid.redraw()
     return
   end
   
+  -- ROW 8, LFO BUTTONS (cols 3-6)
+  if y == 8 then
+    local LFOs = require("audrey/lib/lfos")
+    for i, col in ipairs(Grid.lfo_cols) do
+      if x == col then
+        if z == 1 then
+          if Grid.shift_down or _G.g.key1_down then
+            -- SHIFT + tap LFO → clear ALL assignments
+            LFOs.clear_assignments(i)
+          else
+            -- Normal press → enter patch mode
+            LFOs.start_patch_mode(i)
+          end
+          Grid.redraw()
+        end
+        return
+      end
+    end
+  end
+  
   -- KNOB AREA (rows 2-7)
   local param_id = find_knob(x, y)
   if param_id then
+    local LFOs = require("audrey/lib/lfos")
+    
     if z == 1 then
-      -- Press: activate knob, show overlay
+      -- Check if any LFO is in patch mode
+      local target_lfo = nil
+      for i = 1, 4 do
+        if LFOs.data[i] and LFOs.data[i].patch_mode then
+          target_lfo = i
+          break
+        end
+      end
+      
+      if target_lfo then
+        -- Patching gesture active
+        if Grid.shift_down or _G.g.key1_down then
+          LFOs.remove_assignment(target_lfo, param_id)
+        else
+          LFOs.toggle_assignment(target_lfo, param_id)
+        end
+        _G.g.screen_dirty = true
+        Grid.redraw()
+        return
+      end
+      
+      -- Normal knob press: activate with possible LFO highlight
       Grid.active_knob = {col = x, row = y, param_id = param_id}
       local UI = require("audrey/lib/ui")
       UI.activate_knob(param_id)
       _G.g.screen_dirty = true
+      
     elseif z == 0 then
-      -- Release: deactivate knob
       if Grid.active_knob and Grid.active_knob.param_id == param_id then
         Grid.active_knob = nil
         local UI = require("audrey/lib/ui")
@@ -141,6 +182,7 @@ function Grid.key_handler(x, y, z)
         _G.g.screen_dirty = true
       end
     end
+    
     Grid.redraw()
     return
   end
@@ -186,6 +228,14 @@ end
 -- ENCODER DELTA (called from audrey.lua when K2/K3 move)
 -- ============================================
 function Grid.encoder_delta(delta)
+  -- If LFO overlay is active, adjust depth/mode instead
+  local LFOs = require("audrey/lib/lfos")
+  if LFOs.overlay then
+    LFOs.adjust_overlay(delta, 0)
+    _G.g.screen_dirty = true
+    return
+  end
+  
   if Grid.active_knob then
     local param_id = Grid.active_knob.param_id
     if param_id and params:lookup_param(param_id) then
@@ -206,23 +256,22 @@ function Grid.redraw()
   if not Grid.connected then return end
   grid_dev:all(0)
   local Snapshots = require("audrey/lib/snapshots")
+  local LFOs = require("audrey/lib/lfos")
   
   -- Row 1: Snapshots
   for i = 1, 16 do
     local info = Snapshots.get_slot_info(i)
-    local brightness = 1  -- default: empty
+    local brightness = 1
     if info.exists then
-      brightness = 3  -- occupied
+      brightness = 3
       if Snapshots.current_slot == i then
-        brightness = 11  -- current
+        brightness = 11
       end
     end
-    -- Check for delete warning flash
     if Grid.snapshot_press_time[i] and info.exists then
       local elapsed = clock.get_beats() - Grid.snapshot_press_time[i]
       if elapsed > 1.5 then
-        -- Flash during last 0.5s before delete
-        local phase = (elapsed * 4) % 1  -- 4 Hz flash
+        local phase = (elapsed * 4) % 1
         if phase < 0.5 then
           brightness = 11
         else
@@ -237,12 +286,33 @@ function Grid.redraw()
   local shift_brightness = (Grid.shift_down or _G.g.key1_down) and 14 or 1
   grid_dev:led(1, 8, util.clamp(math.floor(shift_brightness), 0, 15))
   
+  -- Row 8, LFO buttons (cols 3-6)
+  for i, col in ipairs(Grid.lfo_cols) do
+    local brightness = 2
+    if LFOs.data[i] then
+      local lfo = LFOs.data[i]
+      if lfo.patch_mode then
+        brightness = 14
+      elseif lfo.enabled then
+        -- Oscillate between 2-12 based on LFO value
+        local val = lfo.value
+        brightness = math.floor(util.linlin(-1, 1, 2, 12, val))
+      end
+    end
+    grid_dev:led(col, 8, util.clamp(math.floor(brightness), 0, 15))
+  end
+  
   -- Knobs (rows 2-7)
   for _, knob in ipairs(Grid.knob_map) do
     local col, row, param_id = knob[1], knob[2], knob[3]
-    local brightness = 5  -- default: visible
+    local brightness = 5
     if Grid.active_knob and Grid.active_knob.col == col and Grid.active_knob.row == row then
-      brightness = 14  -- pressed
+      -- Highlight brighter (15) if this param has LFO assignments
+      if LFOs.has_assignments(param_id) then
+        brightness = 15
+      else
+        brightness = 14
+      end
     end
     grid_dev:led(col, row, util.clamp(math.floor(brightness), 0, 15))
   end
@@ -258,7 +328,6 @@ function Grid.check_holds()
     if Grid.snapshot_press_time[slot] then
       local elapsed = clock.get_beats() - Grid.snapshot_press_time[slot]
       if elapsed >= 2.0 then
-        -- Delete!
         local info = Grid.get_snapshot_info(slot)
         if info.exists then
           Grid.delete_snapshot(slot)
