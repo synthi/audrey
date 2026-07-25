@@ -1,5 +1,7 @@
 -- pages.lua
 -- v7.3.0 - 10 pages (5 synth + 4 LFO + SNAPSHOTS) + page indicators
+local LFOs = require("audrey/lib/lfos")
+local Snapshots = require("audrey/lib/snapshots")
 
 local Pages = {}
 
@@ -38,10 +40,8 @@ end
 function Pages.change_param_focus(delta)
   local page = Pages.page_list[_G.g.current_page]
   if page.name == "SNAPSHOTS" then
-    local Snapshots = require("audrey/lib/snapshots")
     _G.g.preset_focus = util.clamp(_G.g.preset_focus + delta, 1, Snapshots.num_slots)
   elseif page.lfo_id then
-    local LFOs = require("audrey/lib/lfos")
     local lfo = LFOs.data[page.lfo_id]
     local count = lfo and #lfo.assignments or 0
     Pages.lfo_cursor[page.lfo_id] = util.clamp(Pages.lfo_cursor[page.lfo_id] + delta, 1, math.max(1, count))
@@ -58,7 +58,6 @@ function Pages.adjust_focused_param(delta)
   
   if page.lfo_id then
     -- LFO page: adjust frequency with cents-based ratio
-    local LFOs = require("audrey/lib/lfos")
     local lfo = LFOs.data[page.lfo_id]
     if lfo then
       local sign = (delta > 0) and 1 or -1
@@ -116,7 +115,6 @@ function Pages.draw_param_page()
 end
 
 function Pages.draw_lfo_page(lfo_id)
-  local LFOs = require("audrey/lib/lfos")
   local lfo = LFOs.data[lfo_id]
   if not lfo then return end
 
@@ -177,7 +175,6 @@ function Pages.draw_lfo_scope(lfo, x, y, w, h)
 end
 
 function Pages.draw_snapshot_page()
-  local Snapshots = require("audrey/lib/snapshots")
   screen.level(15)
   screen.move(64, 15)
   screen.text_center("SNAPSHOTS")

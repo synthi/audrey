@@ -7,6 +7,10 @@
 --   Row 7: empty
 --   Row 8: [SH] [---] [L1] [L2] [L3] [L4] [---] [---] [S1..S8]
 
+local LFOs = require("audrey/lib/lfos")
+local UI = require("audrey/lib/ui")
+local Snapshots = require("audrey/lib/snapshots")
+
 local Grid = {}
 local grid_dev = grid.connect()
 
@@ -102,8 +106,6 @@ function Grid.key_handler(x, y, z)
     return
   end
   
-  local LFOs = require("audrey/lib/lfos")
-  
   -- ROW 8, LFO BUTTONS (cols 3-6)
   if y == 8 and x >= 3 and x <= 6 then
     for i, col in ipairs(Grid.lfo_cols) do
@@ -169,14 +171,12 @@ function Grid.key_handler(x, y, z)
       end
       
       Grid.active_knob = {col = x, row = y, param_id = param_id}
-      local UI = require("audrey/lib/ui")
       UI.activate_knob(param_id)
       _G.g.screen_dirty = true
       
     elseif z == 0 then
       if Grid.active_knob and Grid.active_knob.param_id == param_id then
         Grid.active_knob = nil
-        local UI = require("audrey/lib/ui")
         UI.deactivate_knob()
         _G.g.screen_dirty = true
       end
@@ -199,7 +199,6 @@ function Grid.key_handler(x, y, z)
   
   if z == 0 and Grid.active_knob then
     Grid.active_knob = nil
-    local UI = require("audrey/lib/ui")
     UI.deactivate_knob()
     _G.g.screen_dirty = true
     Grid.redraw()
@@ -208,30 +207,25 @@ end
 
 -- Snapshots
 function Grid.get_snapshot_info(slot)
-  local Snapshots = require("audrey/lib/snapshots")
   return Snapshots.get_slot_info(slot)
 end
 
 function Grid.load_snapshot(slot)
-  local Snapshots = require("audrey/lib/snapshots")
   Snapshots.load(slot)
   _G.g.screen_dirty = true
 end
 
 function Grid.save_snapshot(slot)
-  local Snapshots = require("audrey/lib/snapshots")
   Snapshots.save(slot, "S" .. slot)
   _G.g.screen_dirty = true
 end
 
 function Grid.delete_snapshot(slot)
-  local Snapshots = require("audrey/lib/snapshots")
   Snapshots.delete(slot)
   _G.g.screen_dirty = true
 end
 
 function Grid.encoder_delta(delta)
-  local LFOs = require("audrey/lib/lfos")
   if LFOs.overlay then
     LFOs.adjust_overlay(delta, 0)
     _G.g.screen_dirty = true
@@ -253,8 +247,6 @@ end
 
 function Grid.redraw()
   if not Grid.connected then return end
-  local Snapshots = require("audrey/lib/snapshots")
-  local LFOs = require("audrey/lib/lfos")
   
   local lfo_held = nil
   for i = 1, 4 do

@@ -1,5 +1,5 @@
 -- audrey
--- v7.3.0 - Grid reorganization + per-PSET snapshots
+-- v7.3.1 - Grid reorganization + per-PSET snapshots
 -- 2026-07-25
 --
 -- Changelog v7.3.0:
@@ -45,7 +45,7 @@ function init()
   Pages.init()
   
   -- PSET tracking for per-PSET snapshots
-  g.pset_num = params:get("pset") or 1
+  g.pset_num = 1
   params.action_read = function(filename, silent, number)
     if number then g.pset_num = number end
     Snapshots.scan()
@@ -98,7 +98,6 @@ function key(n, z)
   end
   
   local page = Pages.page_list[g.current_page]
-  local LFOs = require("audrey/lib/lfos")
   
   -- LFO overlay active: K2=±polarity, K3=UNI↔BI
   if LFOs.overlay and z == 1 then
@@ -196,7 +195,6 @@ function enc(n, delta)
   if not g.encoders_enabled then return end
   
   local page = Pages.page_list[g.current_page]
-  local LFOs = require("audrey/lib/lfos")
   
   -- If LFO overlay is active, control patch depth
   if LFOs.overlay then

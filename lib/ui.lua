@@ -19,22 +19,6 @@ function UI.draw_header()
   screen.stroke()
 end
 
-function UI.show_param_overlay(param_id)
-  UI.overlay_param = param_id
-  
-  if UI.overlay_timer then
-    clock.cancel(UI.overlay_timer)
-  end
-  
-  UI.overlay_timer = clock.run(function()
-    clock.sleep(2)
-    UI.overlay_param = nil
-    _G.g.screen_dirty = true
-  end)
-  
-  _G.g.screen_dirty = true
-end
-
 -- Called when a grid knob is pressed (momentary overlay, no timeout)
 function UI.activate_knob(param_id)
   UI.overlay_param = param_id
