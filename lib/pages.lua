@@ -1,5 +1,5 @@
 -- pages.lua
--- v6.0.0 - Page navigation with grid sync
+-- v7.0.1 - Page navigation with grid sync
 -- 6 pages organized by function (matching 11 params of C++ original)
 
 local Pages = {}
@@ -10,7 +10,7 @@ Pages.page_list = {
   {name = "REVERB", params = {"reverb_mix", "reverb_decay"}},
   {name = "ECHO", params = {"echo_send", "echo_time", "echo_feedback"}},
   {name = "OUTPUT", params = {"master_level"}},
-  {name = "PRESETS", params = {}}
+  {name = "SNAPSHOTS", params = {}}
 }
 
 function Pages.init()
@@ -32,7 +32,7 @@ end
 function Pages.change_param_focus(delta)
   local page = Pages.page_list[_G.g.current_page]
   if page.name == "SNAPSHOTS" then
-    local Presets = require("audrey/lib/snapshots")
+    local Snapshots = require("audrey/lib/snapshots")
     _G.g.preset_focus = util.clamp(_G.g.preset_focus + delta, 1, Snapshots.num_slots)
   else
     if #page.params > 0 then
@@ -87,7 +87,7 @@ function Pages.draw_param_page()
 end
 
 function Pages.draw_snapshot_page()
-  local Presets = require("audrey/lib/snapshots")
+  local Snapshots = require("audrey/lib/snapshots")
   screen.level(15)
   screen.move(64, 15)
   screen.text_center("SNAPSHOTS")
@@ -117,9 +117,6 @@ function Pages.draw_snapshot_page()
         screen.text("*")
       end
     end
-  end
-end
-
   end
 end
 

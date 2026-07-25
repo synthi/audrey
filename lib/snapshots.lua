@@ -1,5 +1,5 @@
--- presets.lua
--- v6.0.0 - preset management system with PSET integration
+-- snapshots.lua
+-- v7.0.0 - Snapshot management system with PSET integration
 -- Updated for 11 params (matching C++ original)
 
 local Snapshots = {}
@@ -52,7 +52,7 @@ function Snapshots.save(slot, name)
   local f = io.open(filename, "w")
   if f then
     f:write("-- " .. name .. "\n")
-    f:write("-- Audrey v6.0.0 preset (faithful to C++ original)\n")
+    f:write("-- Audrey v7.0.0 snapshot (faithful to C++ original)\n")
     f:write("-- Saved: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n\n")
     f:write("return {\n")
     f:write("  -- Synthesis\n")

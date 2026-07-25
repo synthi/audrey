@@ -9,8 +9,8 @@
 --
 -- Knob mapping (col, row):
 --   FREQ (2,6)  FBGN (4,4)  BODY (8,7)  LPF (6,6)   HPF (10,6)
---   DW   (8,3)  VDEC (8,5)  ESND (13,5) ETIM (13,7) EFB (12,6)
---   OUT  (13,3)
+--   DW   (8,3)  VDEC (8,5)  ESND (14,5) ETIM (14,7) EFB (12,6)
+--   OUT  (14,3)
 
 local Grid = {}
 local grid_dev = grid.connect()
