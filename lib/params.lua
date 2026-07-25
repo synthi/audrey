@@ -32,7 +32,7 @@ function Params.init_params()
     type = "control",
     id = "feedback_gain",
     name = "Feedback Gain",
-    controlspec = controlspec.new(-60, 12, "lin", 0.01, 0.8, "dB"),
+    controlspec = controlspec.new(-60, 12, "lin", 0.01, -24, "dB"),
     action = function(x) engine.feedbackGain(x) end
   }
 
@@ -112,7 +112,7 @@ function Params.init_params()
     type = "control",
     id = "master_level",
     name = "Master Level",
-    controlspec = controlspec.new(0.001, 1, "lin", 0.001, 0.5, ""),
+    controlspec = controlspec.new(0.001, 1, "lin", 0.001, 0.8, ""),
     action = function(x) engine.masterLevel(x) end
   }
 

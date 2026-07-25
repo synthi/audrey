@@ -11,7 +11,7 @@ El sonido se genera mediante un **bucle de realimentación** auto-oscilante: un 
 | # | Parámetro | Rango | Default | Descripción |
 |---|---|---|---|---|
 | 1 | Frequency | 16-72 nn | 40 nn | Frecuencia en notas MIDI. Control continuo con magnetismo a notas exactas |
-| 2 | Feedback Gain | -60 a 12 dB | 0.8 dB | Ganancia del bucle de realimentación. >0 dB = auto-oscilación |
+| 2 | Feedback Gain | -60 a 12 dB | -24 dB | Ganancia del bucle de realimentación. >0 dB = auto-oscilación |
 | 3 | Feedback Body | 0.001-0.1 s | 0.001 s | Retardo corporal del feedback (estéreo decorrelado) |
 | 4 | Lowpass Cutoff | 100-18000 Hz | 18000 Hz | Filtro paso bajo del bucle de realimentación |
 | 5 | Highpass Cutoff | 10-4000 Hz | 250 Hz | Filtro paso alto del bucle de realimentación |
@@ -20,7 +20,7 @@ El sonido se genera mediante un **bucle de realimentación** auto-oscilante: un 
 | 8 | Echo Send | 0-1 | 0.0 | Envío al eco (BPF 800Hz + saturación tape) |
 | 9 | Echo Time | 0.05-5.0 s | 0.5 s | Tiempo del eco |
 | 10 | Echo Feedback | 0-1.5 | 0.0 | Realimentación del eco (>1 = auto-oscilación) |
-| 11 | Master Level | 0-1 | 0.5 | Volumen de salida |
+| 11 | Master Level | 0-1 | 0.8 | Volumen de salida |
 
 ## Controles Norns
 
