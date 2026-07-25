@@ -63,6 +63,7 @@ function init()
   screen_timer.event = function()
     local page = Pages.page_list[g.current_page]
     if page and page.lfo_id then g.screen_dirty = true end
+    if UI.overlay_param then g.screen_dirty = true end
     if g.screen_dirty then
       redraw()
       g.screen_dirty = false
