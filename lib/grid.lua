@@ -5,7 +5,7 @@
 --   Row 1: empty
 --   Rows 2-6: Audrey-II knob layout (shifted up 1 row, HPF/LPF swapped)
 --   Row 7: empty
---   Row 8: [SH] [---] [L1] [L2] [L3] [L4] [---] [---] [S1..S8]
+--   Row 8: [SH] [---] [L1] [L2] [L3] [L4] [L5] [---] [S1..S8]
 
 local LFOs = require("audrey/lib/lfos")
 local UI = require("audrey/lib/ui")
@@ -30,7 +30,7 @@ Grid.knob_map = {
   {14, 2, "master_level"},
 }
 
-Grid.lfo_cols = {3, 4, 5, 6}
+Grid.lfo_cols = {3, 4, 5, 6, 7}
 Grid.snapshot_cols = {9, 10, 11, 12, 13, 14, 15, 16}  -- 8 slots
 Grid.snapshot_press_time = {}
 Grid.snapshot_delete_warned = {}
@@ -106,8 +106,8 @@ function Grid.key_handler(x, y, z)
     return
   end
   
-  -- ROW 8, LFO BUTTONS (cols 3-6)
-  if y == 8 and x >= 3 and x <= 6 then
+  -- ROW 8, LFO BUTTONS (cols 3-7)
+  if y == 8 and x >= 3 and x <= 7 then
     for i, col in ipairs(Grid.lfo_cols) do
       if x == col then
         if z == 1 then
@@ -152,7 +152,7 @@ function Grid.key_handler(x, y, z)
   if param_id then
     if z == 1 then
       local active_lfo = nil
-      for i = 1, 4 do
+      for i = 1, 5 do
         if LFOs.data[i] and LFOs.data[i].patch_mode then
           active_lfo = i
           break
@@ -182,7 +182,7 @@ function Grid.key_handler(x, y, z)
       end
       
       if LFOs.overlay then
-        for i = 1, 4 do
+        for i = 1, 5 do
           if LFOs.data[i] and LFOs.data[i].patch_mode then
             goto keep_overlay
           end
@@ -249,7 +249,7 @@ function Grid.redraw()
   if not Grid.connected then return end
   
   local lfo_held = nil
-  for i = 1, 4 do
+  for i = 1, 5 do
     if LFOs.data[i] and LFOs.data[i].patch_mode then
       lfo_held = i
       break
@@ -284,7 +284,7 @@ function Grid.redraw()
     Grid.cache[1][8] = shift_br
   end
   
-  -- Row 8, LFO buttons (cols 3-6)
+  -- Row 8, LFO buttons (cols 3-7)
   local knob_held = (Grid.active_knob ~= nil)
   for i, col in ipairs(Grid.lfo_cols) do
     local b = 2

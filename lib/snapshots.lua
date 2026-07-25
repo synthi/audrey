@@ -62,7 +62,7 @@ local function save_lfo_state(slot, path)
   local f = io.open(filename, "w")
   if not f then return end
   f:write("return {\n")
-  for i = 1, 4 do
+  for i = 1, 5 do
     local s = state[i]
     if s then
       f:write("  [" .. i .. "] = {\n")

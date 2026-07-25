@@ -16,7 +16,7 @@ LFOs.WAVE_SLEW = 2   -- LFNoise with slew (replaces Perlin)
 
 function LFOs.init()
   LFOs.data = {}
-  for i = 1, 4 do
+  for i = 1, 5 do
     LFOs.data[i] = {
       enabled = true,
       freq = 1.0,           -- 0.01 - 32 Hz
@@ -45,7 +45,7 @@ function LFOs.init()
 end
 
 function LFOs.cleanup()
-  for i = 1, 4 do
+  for i = 1, 5 do
     if LFOs.data[i] and LFOs.data[i].metro then
       LFOs.data[i].metro:stop()
     end
@@ -55,7 +55,7 @@ function LFOs.cleanup()
 end
 
 function LFOs.has_assignments(param_id)
-  for i = 1, 4 do
+  for i = 1, 5 do
     if LFOs.data[i] then
       for _, a in ipairs(LFOs.data[i].assignments) do
         if a[1] == param_id then return true end
@@ -67,7 +67,7 @@ end
 
 function LFOs.get_connected_lfos(param_id)
   local result = {}
-  for i = 1, 4 do
+  for i = 1, 5 do
     if LFOs.data[i] then
       for _, a in ipairs(LFOs.data[i].assignments) do
         if a[1] == param_id then
@@ -111,19 +111,8 @@ function LFOs.connect_or_show(lfo_id, param_id)
     return
   end
 
-  -- Steal from other LFOs
-  for i = 1, 4 do
-    if i ~= lfo_id and LFOs.data[i] then
-      for idx, a in ipairs(LFOs.data[i].assignments) do
-        if a[1] == param_id then
-          table.remove(LFOs.data[i].assignments, idx)
-          break
-        end
-      end
-    end
-  end
-
   -- New connection: signed depth 0.25, contrib starts at 0
+  -- (Multiple LFOs can modulate the same parameter - ncoco style)
   table.insert(LFOs.data[lfo_id].assignments, {param_id, 0.25, 0.0})
   LFOs.overlay = {
     lfo_id = lfo_id,
@@ -249,7 +238,7 @@ end
 -- Serialize LFO state for snapshots
 function LFOs.get_state()
   local state = {}
-  for i = 1, 4 do
+  for i = 1, 5 do
     if LFOs.data[i] then
       local lfo = LFOs.data[i]
       local assignments = {}
@@ -270,7 +259,7 @@ end
 -- Restore LFO state from snapshots
 function LFOs.set_state(state)
   if not state then return end
-  for i = 1, 4 do
+  for i = 1, 5 do
     if state[i] and LFOs.data[i] then
       local s = state[i]
       LFOs.data[i].freq = s.freq or 1.0

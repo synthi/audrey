@@ -11,6 +11,7 @@ Pages.page_list = {
   {name = "LFO 2", params = {}, lfo_id = 2},
   {name = "LFO 3", params = {}, lfo_id = 3},
   {name = "LFO 4", params = {}, lfo_id = 4},
+  {name = "LFO 5", params = {}, lfo_id = 5},
   {name = "FILTERS", params = {"lpf_cutoff", "hpf_cutoff"}},
   {name = "REVERB", params = {"reverb_mix", "reverb_decay"}},
   {name = "ECHO", params = {"echo_send", "echo_time", "echo_feedback"}},
@@ -18,13 +19,13 @@ Pages.page_list = {
   {name = "SNAPSHOTS", params = {}}
 }
 
-Pages.lfo_cursor = {1, 1, 1, 1}
+Pages.lfo_cursor = {1, 1, 1, 1, 1}
 
 function Pages.init()
   _G.g.current_page = 1
   _G.g.param_focus = 1
   _G.g.preset_focus = 1
-  Pages.lfo_cursor = {1, 1, 1, 1}
+  Pages.lfo_cursor = {1, 1, 1, 1, 1}
 end
 
 function Pages.next_page()
