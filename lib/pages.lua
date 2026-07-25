@@ -7,15 +7,15 @@ local Pages = {}
 
 Pages.page_list = {
   {name = "SYNTHESIS", params = {"frequency", "feedback_gain", "feedback_body_delay"}},
+  {name = "FILTERS", params = {"lpf_cutoff", "hpf_cutoff"}},
+  {name = "REVERB", params = {"reverb_mix", "reverb_decay"}},
+  {name = "ECHO", params = {"echo_send", "echo_time", "echo_feedback"}},
+  {name = "OUTPUT", params = {"master_level"}},
   {name = "LFO 1", params = {}, lfo_id = 1},
   {name = "LFO 2", params = {}, lfo_id = 2},
   {name = "LFO 3", params = {}, lfo_id = 3},
   {name = "LFO 4", params = {}, lfo_id = 4},
   {name = "LFO 5", params = {}, lfo_id = 5},
-  {name = "FILTERS", params = {"lpf_cutoff", "hpf_cutoff"}},
-  {name = "REVERB", params = {"reverb_mix", "reverb_decay"}},
-  {name = "ECHO", params = {"echo_send", "echo_time", "echo_feedback"}},
-  {name = "OUTPUT", params = {"master_level"}},
   {name = "SNAPSHOTS", params = {}}
 }
 
@@ -146,7 +146,7 @@ function Pages.draw_lfo_page(lfo_id)
   screen.move(64, 55)
   screen.text("K2:" .. wave_str)
   screen.move(124, 55)
-  screen.text_right("K3:" .. (lfo.enabled and "ON" or "OFF"))
+  screen.text_right("K3:next")
 end
 
 -- Real voltage scope, copied from ncoco draw_scope (ui.lua:39-56)

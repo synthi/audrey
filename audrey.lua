@@ -1,5 +1,5 @@
 -- audrey
--- v7.4.0 - Grid reorganization + per-PSET snapshots
+-- v7.4.1 - Grid reorganization + per-PSET snapshots
 -- 2026-07-25
 --
 -- Changelog v7.3.0:
@@ -108,32 +108,24 @@ function key(n, z)
     return
   end
   
-  -- LFO page key handling (when no grid knob is active)
+  -- LFO page key handling: K2 = toggle waveform only
   if page.lfo_id and not (Grid.connected and Grid.active_knob) then
-    if z == 1 then
+    if z == 1 and n == 2 then
       local lfo = LFOs.data[page.lfo_id]
       if not lfo then return end
-      
-      if n == 2 then
-        -- K2: toggle waveform
-        if lfo.wave == LFOs.WAVE_TRI then
-          lfo.wave = LFOs.WAVE_SLEW
-          lfo.slew_target = math.random() * 2 - 1
-          lfo.slew_current = 0
-          lfo.slew_timer = 0
-        else
-          lfo.wave = LFOs.WAVE_TRI
-          lfo.phase = 0
-        end
-        g.screen_dirty = true
-        
-      elseif n == 3 then
-        -- K3: toggle enabled
-        lfo.enabled = not lfo.enabled
-        g.screen_dirty = true
+      -- K2: toggle waveform
+      if lfo.wave == LFOs.WAVE_TRI then
+        lfo.wave = LFOs.WAVE_SLEW
+        lfo.slew_target = math.random() * 2 - 1
+        lfo.slew_current = 0
+        lfo.slew_timer = 0
+      else
+        lfo.wave = LFOs.WAVE_TRI
+        lfo.phase = 0
       end
+      g.screen_dirty = true
     end
-    return
+    -- No return: K3 falls through to Pages.next_page()
   end
   
   if z == 1 then

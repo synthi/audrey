@@ -19,7 +19,7 @@ function LFOs.init()
   for i = 1, 5 do
     LFOs.data[i] = {
       enabled = true,
-      freq = 1.0,           -- 0.01 - 32 Hz
+      freq = 0.25 + (i-1) * 0.125,  -- LFO1=0.25, LFO2=0.375, LFO3=0.5, LFO4=0.625, LFO5=0.75 Hz
       wave = LFOs.WAVE_TRI,
       phase = math.random() * 2 * math.pi,
       value = 0.0,

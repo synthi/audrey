@@ -126,7 +126,7 @@ function Grid.key_handler(x, y, z)
             LFOs.clear_assignments(i)
           else
             Grid.saved_page = _G.g.current_page
-            _G.g.current_page = 1 + i
+            _G.g.current_page = 5 + i  -- LFO pages are 6-10, SNAPSHOTS=11
             LFOs.set_patch_mode(i, true)
             _G.g.screen_dirty = true
           end
@@ -136,10 +136,8 @@ function Grid.key_handler(x, y, z)
             Grid.saved_page = 0
           end
           LFOs.set_patch_mode(i, false)
-          if LFOs.overlay then
-            LFOs.overlay = nil
-            _G.g.screen_dirty = true
-          end
+          LFOs.overlay = nil
+          _G.g.screen_dirty = true
         end
         Grid.redraw()
         return
