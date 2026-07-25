@@ -41,25 +41,15 @@ function Pages.change_param_focus(delta)
   end
 end
 
-local function accelerate(delta)
-  local sign = (delta > 0) and 1 or -1
-  return sign * (math.abs(delta) ^ 2.0)
-end
-
-local function accelerate_freq(delta)
-  local sign = (delta > 0) and 1 or -1
-  return sign * (math.abs(delta) ^ 3.0) / 100
-end
-
 function Pages.adjust_focused_param(delta)
   local page = Pages.page_list[_G.g.current_page]
   if page.name == "SNAPSHOTS" then return end
   if #page.params > 0 then
     local param_id = page.params[_G.g.param_focus]
-    if param_id == "frequency" then
-      params:delta(param_id, accelerate_freq(delta))
+    if param_id == "frequency" or param_id == "lpf_cutoff" or param_id == "hpf_cutoff" then
+      step_cents(param_id, delta)
     else
-      params:delta(param_id, accelerate(delta))
+      step_accel(param_id, delta)
     end
   end
 end

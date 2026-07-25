@@ -115,15 +115,23 @@ audio_in + noise(-90dB) + fb_return
 
 ## Aceleración de Encoders
 
-Todos los parámetros usan mapeo **lineal** con alta resolución. La aceleración se aplica en función de la velocidad de giro del encoder:
+Los parámetros usan dos estrategias de aceleración, aplicadas según la velocidad de giro del encoder:
 
-| Giro | Frecuencia (cents) | Resto de parámetros |
-|------|-------------------|---------------------|
-| **Lento** (delta=1) | 1 cent (imperceptible) | 1 step |
-| **Medio** (delta=3) | 27 cents (~¼ semitono) | 9 steps |
-| **Rápido** (delta=6) | 216 cents (~2 semitonos) | 36 steps |
+### Parámetros de frecuencia (Freq, LPF, HPF) — cents logarítmicos
+| Giro | Cents | Efecto | HPF a 10 Hz | LPF a 100 Hz |
+|------|-------|--------|-------------|--------------|
+| **Lento** (δ=1) | 1.5¢ | Imperceptible | 10.009 Hz | 100.09 Hz |
+| **Medio** (δ=3) | 70¢ | ~¾ semitono | 10.41 Hz | 104.1 Hz |
+| **Rápido** (δ=6) | 1035¢ | ~10 semitonos | 18.2 Hz | 182 Hz |
 
-Esto permite precisión quirúrgica girando lento y barridos veloces girando rápido, sin necesidad de mapeo exponencial (que es errático con encoders).
+### Parámetros lineales (Gain, Body, Mix, Decay, Send, Time, Level) — step × aceleración
+| Giro | Steps | Ejemplo: fb_gain (step=0.01) |
+|------|-------|------------------------------|
+| **Lento** (δ=1) | 1 | 0.01 dB |
+| **Medio** (δ=3) | 15.6 | 0.16 dB |
+| **Rápido** (δ=6) | 88 | 0.88 dB |
+
+La aceleración permite precisión quirúrgica girando lento y barridos veloces girando rápido. Se usa `params:set()` directamente en vez de `params:delta()` para evitar el comportamiento errático de norns que interpreta delta como porcentaje del rango.
 
 ## Versión
 

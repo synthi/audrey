@@ -104,21 +104,29 @@ function key(n, z)
 end
 
 -- ============================================
--- ENCODER ACCELERATION FUNCTIONS
+-- ENCODER ACCELERATION FUNCTIONS (global, used by pages/grid too)
 -- ============================================
 
--- Frequency: cubic cents (delta=1→1cent, delta=6→216cents≈2 semitones)
--- Returns delta in MIDI note numbers (1 cent = 0.01 MIDI notes)
-local function accelerate_freq(delta)
+-- Logarithmic params (freq, lpf, hpf): cents-based, same feel across entire range
+-- delta=1→1.5¢, delta=6→~1035¢ (~10 semitones)
+function step_cents(param_id, delta)
+  local p = params:lookup_param(param_id)
+  if not p then return end
+  local current = p:get()
   local sign = (delta > 0) and 1 or -1
-  return sign * (math.abs(delta) ^ 3.0) / 100
+  local cents = (math.abs(delta) ^ 3.5) * 1.5
+  local ratio = 2 ^ (sign * cents / 1200)
+  params:set(param_id, util.clamp(current * ratio, p.controlspec.minval, p.controlspec.maxval))
 end
 
--- All other params: quadratic acceleration
--- delta=1→1 step, delta=3→9 steps, delta=6→36 steps
-local function accelerate(delta)
+-- Linear params (gain, body, mix, decay, echo, level): step * acceleration
+-- delta=1→1 step, delta=6→88 steps (^2.5)
+function step_accel(param_id, delta)
+  local p = params:lookup_param(param_id)
+  if not p then return end
   local sign = (delta > 0) and 1 or -1
-  return sign * (math.abs(delta) ^ 2.0)
+  local steps = math.abs(delta) ^ 2.5
+  params:set(param_id, util.clamp(p:get() + sign * steps * p.controlspec.step, p.controlspec.minval, p.controlspec.maxval))
 end
 
 -- ============================================
@@ -136,7 +144,7 @@ function enc(n, delta)
   end
   
   if n == 1 then
-    params:delta("feedback_gain", accelerate(delta))
+    step_accel("feedback_gain", delta)
   elseif n == 2 then
     Pages.change_param_focus(delta)
   elseif n == 3 then
