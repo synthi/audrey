@@ -85,7 +85,8 @@ function UI.draw_overlay()
   screen.fill()
 end
 
--- LFO overlay: shown when patching or adjusting LFO modulation
+-- LFO overlay: copied from ncoco draw_patch_menu (ui.lua:250-259)
+-- Bar centered at 0, negative=left, positive=right
 function UI.draw_lfo_overlay()
   local LFOs = require("audrey/lib/lfos")
   local o = LFOs.overlay
@@ -94,39 +95,58 @@ function UI.draw_lfo_overlay()
   local param = params:lookup_param(o.param_id)
   if not param then return end
   
-  -- Background
-  screen.level(3)
-  screen.rect(8, 16, 112, 36)
-  screen.fill()
+  -- Get signed value based on mode
+  local signed_val = 0
+  if o.mode == "uni+" then
+    signed_val = o.depth
+  elseif o.mode == "uni-" then
+    signed_val = -o.depth
+  elseif o.mode == "bi+" then
+    local lfo = LFOs.data[o.lfo_id]
+    signed_val = lfo and (lfo.value * o.depth) or 0
+  else  -- bi-
+    local lfo = LFOs.data[o.lfo_id]
+    signed_val = lfo and (-lfo.value * o.depth) or 0
+  end
+  signed_val = util.clamp(signed_val, -1, 1)
   
+  -- Background (matching ncoco: 10,10,108,50)
+  screen.level(0)
+  screen.rect(10, 10, 108, 50)
+  screen.fill()
   screen.level(15)
-  screen.rect(8, 16, 112, 36)
+  screen.rect(10, 10, 108, 50)
   screen.stroke()
   
   -- Title
-  screen.level(15)
-  screen.move(64, 26)
-  screen.text_center("LFO " .. o.lfo_id .. " → " .. param.name)
+  screen.move(64, 25)
+  screen.text_center("PATCHING...")
+  screen.move(64, 35)
+  screen.text_center("LFO " .. o.lfo_id .. " > " .. param.name)
   
-  -- Depth bar
-  screen.level(8)
-  screen.rect(18, 32, 92, 3)
+  -- Bar with 0 at center (matching ncoco)
+  screen.level(2)
+  screen.move(64, 40)
+  screen.line_rel(40, 0)
+  screen.move(64, 40)
+  screen.line_rel(-40, 0)
   screen.stroke()
-  screen.rect(18, 32, 92 * o.depth, 3)
+  screen.level(15)
+  screen.move(64, 40)
+  screen.line_rel(signed_val * 40, 0)
+  screen.stroke()
+  screen.circle(64 + signed_val * 40, 40, 2)
   screen.fill()
   
-  -- Mode and depth value
+  -- Value percentage (top-right)
   screen.level(15)
-  screen.move(18, 48)
-  screen.text(o.mode .. " " .. string.format("%.3f", o.depth))
+  screen.move(115, 20)
+  screen.text_right(string.format("%.0f%%", signed_val * 100))
   
   -- Controls hint
   screen.level(4)
-  screen.move(14, 52)
-  screen.line(114, 52)
-  screen.stroke()
-  screen.move(64, 52)
-  screen.text_center("E2/E3:dpt  K2:±  K3:UNI/BI")
+  screen.move(14, 55)
+  screen.text("E2/E3:dpt  K2:±  K3:" .. o.mode)
 end
 
 return UI

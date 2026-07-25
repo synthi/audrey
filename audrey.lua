@@ -32,7 +32,7 @@ local LFOs = require("audrey/lib/lfos")
 
 g = {
   screen_dirty = true,
-  screen_refresh_rate = 15,
+  screen_refresh_rate = 60,
   current_page = 1,
   param_focus = 1,
   preset_focus = 1,
@@ -49,8 +49,10 @@ function init()
   LFOs.init()
   
   screen_timer = metro.init()
-  screen_timer.time = 1 / g.screen_refresh_rate
+  screen_timer.time = 1 / 60
   screen_timer.event = function()
+    local page = Pages.page_list[g.current_page]
+    if page and page.lfo_id then g.screen_dirty = true end
     if g.screen_dirty then
       redraw()
       g.screen_dirty = false
@@ -61,7 +63,7 @@ function init()
   
   if Grid.connected then
     grid_timer = metro.init()
-    grid_timer.time = 1 / 30
+    grid_timer.time = 1 / 60
     grid_timer.event = function()
       Grid.redraw()
     end
@@ -86,11 +88,22 @@ function key(n, z)
   end
   
   local page = Pages.page_list[g.current_page]
+  local LFOs = require("audrey/lib/lfos")
+  
+  -- LFO overlay active: K2=±polarity, K3=UNI↔BI
+  if LFOs.overlay and z == 1 then
+    if n == 2 then
+      LFOs.adjust_overlay(0, -1)
+    elseif n == 3 then
+      LFOs.adjust_overlay(0, 1)
+    end
+    g.screen_dirty = true
+    return
+  end
   
   -- LFO page key handling (when no grid knob is active)
   if page.lfo_id and not (Grid.connected and Grid.active_knob) then
     if z == 1 then
-      local LFOs = require("audrey/lib/lfos")
       local lfo = LFOs.data[page.lfo_id]
       if not lfo then return end
       
@@ -170,6 +183,18 @@ end
 function enc(n, delta)
   if not g.encoders_enabled then return end
   
+  local page = Pages.page_list[g.current_page]
+  local LFOs = require("audrey/lib/lfos")
+  
+  -- If LFO overlay is active, control patch depth
+  if LFOs.overlay then
+    if n == 2 or n == 3 then
+      LFOs.adjust_overlay(delta, 0)
+    end
+    g.screen_dirty = true
+    return
+  end
+  
   -- If a grid knob is active, encoders control that param
   if Grid.connected and Grid.active_knob then
     Grid.encoder_delta(delta)
@@ -180,7 +205,11 @@ function enc(n, delta)
   if n == 1 then
     step_accel("feedback_gain", delta)
   elseif n == 2 then
-    Pages.change_param_focus(delta)
+    if page.lfo_id then
+      Pages.adjust_focused_param(delta)
+    else
+      Pages.change_param_focus(delta)
+    end
   elseif n == 3 then
     Pages.adjust_focused_param(delta)
   end

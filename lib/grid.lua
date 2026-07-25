@@ -54,6 +54,9 @@ Grid.shift_down = false
 Grid.active_knob = nil
 Grid.saved_page = 0
 
+-- Cache for differential LED updates (ncoco style)
+Grid.cache = {}
+
 local function find_knob(x, y)
   for _, knob in ipairs(Grid.knob_map) do
     if knob[1] == x and knob[2] == y then
@@ -67,6 +70,12 @@ end
 -- INIT
 -- ============================================
 function Grid.init()
+  -- Init cache (ncoco style)
+  for x = 1, 16 do
+    Grid.cache[x] = {}
+    for y = 1, 8 do Grid.cache[x][y] = -1 end
+  end
+  
   if grid_dev and grid_dev.device then
     Grid.connected = true
     grid_dev.key = Grid.key_handler
@@ -139,7 +148,7 @@ function Grid.key_handler(x, y, z)
           else
             -- Save current page, navigate to LFO page + enter patch mode
             Grid.saved_page = _G.g.current_page
-            _G.g.current_page = 5 + i
+            _G.g.current_page = 1 + i
             LFOs.set_patch_mode(i, true)
             _G.g.screen_dirty = true
           end
@@ -286,7 +295,6 @@ end
 -- ============================================
 function Grid.redraw()
   if not Grid.connected then return end
-  grid_dev:all(0)
   local Snapshots = require("audrey/lib/snapshots")
   local LFOs = require("audrey/lib/lfos")
   
@@ -302,66 +310,70 @@ function Grid.redraw()
   -- Row 1: Snapshots
   for i = 1, 16 do
     local info = Snapshots.get_slot_info(i)
-    local brightness = 1
+    local b = 1
     if info.exists then
-      brightness = 3
+      b = 3
       if Snapshots.current_slot == i then
-        brightness = 11
+        b = 11
       end
     end
     if Grid.snapshot_press_time[i] and info.exists then
       local elapsed = clock.get_beats() - Grid.snapshot_press_time[i]
       if elapsed > 1.5 then
         local phase = (elapsed * 4) % 1
-        if phase < 0.5 then brightness = 11 else brightness = 0 end
+        if phase < 0.5 then b = 11 else b = 0 end
       end
     end
-    grid_dev:led(i, 1, util.clamp(math.floor(brightness), 0, 15))
+    if Grid.cache[i] and Grid.cache[i][1] ~= b then
+      grid_dev:led(i, 1, util.clamp(math.floor(b), 0, 15))
+      Grid.cache[i][1] = b
+    end
   end
   
   -- Row 8, Col 1: SHIFT
-  local shift_brightness = (Grid.shift_down or _G.g.key1_down) and 14 or 1
-  grid_dev:led(1, 8, util.clamp(math.floor(shift_brightness), 0, 15))
+  local shift_br = (Grid.shift_down or _G.g.key1_down) and 14 or 1
+  if Grid.cache[1] and Grid.cache[1][8] ~= shift_br then
+    grid_dev:led(1, 8, util.clamp(math.floor(shift_br), 0, 15))
+    Grid.cache[1][8] = shift_br
+  end
   
   -- Row 8, LFO buttons (cols 3-6)
   local knob_held = (Grid.active_knob ~= nil)
   for i, col in ipairs(Grid.lfo_cols) do
-    local brightness = 2
+    local b = 2
     if LFOs.data[i] then
       local lfo = LFOs.data[i]
       if lfo.patch_mode then
-        brightness = 14  -- held
+        b = 14
       elseif knob_held and Grid.active_knob then
-        -- Knob held: highlight LFOs connected to this param
         local connected = LFOs.get_connected_lfos(Grid.active_knob.param_id)
         if connected[i] then
-          brightness = 15
+          b = 15
         elseif lfo.enabled then
-          local val = lfo.value
-          brightness = math.floor(util.linlin(-1, 1, 2, 12, val))
+          b = math.floor(util.linlin(-1, 1, 2, 12, lfo.value))
         end
       elseif lfo.enabled then
-        local val = lfo.value
-        brightness = math.floor(util.linlin(-1, 1, 2, 12, val))
+        b = math.floor(util.linlin(-1, 1, 2, 12, lfo.value))
       end
     end
-    grid_dev:led(col, 8, util.clamp(math.floor(brightness), 0, 15))
+    if Grid.cache[col] and Grid.cache[col][8] ~= b then
+      grid_dev:led(col, 8, util.clamp(math.floor(b), 0, 15))
+      Grid.cache[col][8] = b
+    end
   end
   
   -- Knobs (rows 2-7)
   for _, knob in ipairs(Grid.knob_map) do
     local col, row, param_id = knob[1], knob[2], knob[3]
-    local brightness = 5
+    local b = 5
     
     if Grid.active_knob and Grid.active_knob.col == col and Grid.active_knob.row == row then
-      -- This knob is held
       if LFOs.has_assignments(param_id) then
-        brightness = 15
+        b = 15
       else
-        brightness = 14
+        b = 14
       end
     elseif lfo_held then
-      -- An LFO is held: highlight only its connected knobs
       local lfo = LFOs.data[lfo_held]
       local is_connected = false
       for _, a in ipairs(lfo.assignments) do
@@ -371,13 +383,14 @@ function Grid.redraw()
         end
       end
       if is_connected then
-        brightness = 15
-      else
-        brightness = 5  -- stay normal (not connected)
+        b = 15
       end
     end
     
-    grid_dev:led(col, row, util.clamp(math.floor(brightness), 0, 15))
+    if Grid.cache[col] and Grid.cache[col][row] ~= b then
+      grid_dev:led(col, row, util.clamp(math.floor(b), 0, 15))
+      Grid.cache[col][row] = b
+    end
   end
   
   grid_dev:refresh()
