@@ -165,18 +165,7 @@ function key(n, z)
   
   if z == 1 then
     if n == 3 then
-      if page.name == "SNAPSHOTS" then
-        if g.key1_down then
-          local name = "Snapshot " .. g.preset_focus
-          Snapshots.save(g.preset_focus, name)
-          print("Saved to slot " .. g.preset_focus)
-        else
-          Snapshots.load(g.preset_focus)
-        end
-      else
-        Pages.next_page()
-      end
-      
+      Pages.next_page()
       g.screen_dirty = true
     end
   end

@@ -15,8 +15,7 @@ Pages.page_list = {
   {name = "LFO 2", params = {}, lfo_id = 2},
   {name = "LFO 3", params = {}, lfo_id = 3},
   {name = "LFO 4", params = {}, lfo_id = 4},
-  {name = "LFO 5", params = {}, lfo_id = 5},
-  {name = "SNAPSHOTS", params = {}}
+  {name = "LFO 5", params = {}, lfo_id = 5}
 }
 
 Pages.lfo_cursor = {1, 1, 1, 1, 1}

@@ -74,7 +74,7 @@ function Grid.key_handler(x, y, z)
     local slot = snap_index(x)
     if not slot then return end
     if z == 1 then
-      Grid.snapshot_press_time[slot] = clock.get_beats()
+      Grid.snapshot_press_time[slot] = util.time()
     elseif z == 0 then
       local press_time = Grid.snapshot_press_time[slot]
       Grid.snapshot_press_time[slot] = nil
@@ -83,10 +83,10 @@ function Grid.key_handler(x, y, z)
         -- SHIFT + button = delete
         if info.exists then Grid.delete_snapshot(slot) end
       else
-        local elapsed = press_time and (clock.get_beats() - press_time) or 0
+        local elapsed = press_time and (util.time() - press_time) or 0
         if info.exists then
-          if elapsed >= 0.5 and Snapshots.current_slot == slot then
-            -- Hold 0.5s on active snapshot = update
+          if elapsed >= 0.5 then
+            -- Hold 0.5s = update
             Grid.save_snapshot(slot)
           else
             -- Tap = load
